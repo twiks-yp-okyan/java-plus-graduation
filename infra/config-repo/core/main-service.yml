@@ -1,0 +1,18 @@
+spring:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+  datasource:
+    driverClassName: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:6541/mainservicedb
+    username: mainservice
+    password: mainservice
+
+server:
+  port: 0
+
+logging:
+  level:
+    ru.practicum.explorewithme: INFO
+    ru.practicum.explorewithme.client: DEBUG
