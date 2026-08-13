@@ -15,9 +15,8 @@ import java.util.List;
 @Service
 @Slf4j
 public class StatClient {
-
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
+    private final String statServerUri = "http://stat-server"; // только потому что code-style не пропускает константу..
     private final RestTemplate restTemplate;
 
     public StatClient(RestTemplate restTemplate) {
@@ -25,8 +24,8 @@ public class StatClient {
     }
 
     public void saveHit(EndpointHit hitDto) {
-        restTemplate.postForObject("/hit", hitDto, Void.class);
-        log.info("Сохранено обращение: {}", hitDto);
+        restTemplate.postForObject(statServerUri + "/hit", hitDto, Void.class);
+        log.debug("Сохранено обращение: {}", hitDto);
     }
 
     public List<ViewStats> getStat(
@@ -35,23 +34,20 @@ public class StatClient {
             List<String> uris,
             boolean unique
     ) {
-        log.info("start={}, end={}, uris={}, unique={}", start, end, uris, unique);
+        log.debug("start={}, end={}, uris={}, unique={}", start, end, uris, unique);
         UriComponentsBuilder builder = UriComponentsBuilder
-                .fromPath("/stats")
+                .fromUriString(statServerUri + "/stats")
                 .queryParam("start", start.format(formatter).replace(" ", "+"))
                 .queryParam("end", end.format(formatter).replace(" ", "+"))
                 .queryParam("unique", unique);
-        log.info("builder={}", builder);
 
         if (uris != null && !uris.isEmpty()) {
             uris.forEach(uri -> builder.queryParam("uris", uri));
         }
-
-        log.info("builder={}", builder);
+        log.debug("collected URI string={}", builder.toUriString());
 
         ViewStats[] response = restTemplate
                 .getForObject(builder.toUriString(), ViewStats[].class);
-        log.info("response", response);
         return response != null ? Arrays.asList(response) : List.of();
     }
 }
