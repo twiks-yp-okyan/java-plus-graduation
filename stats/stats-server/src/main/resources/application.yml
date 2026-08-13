@@ -1,5 +1,5 @@
 spring:
   application:
-    name: stat-server
+    name: stats-server
   config:
     import: configserver:http://localhost:8888
