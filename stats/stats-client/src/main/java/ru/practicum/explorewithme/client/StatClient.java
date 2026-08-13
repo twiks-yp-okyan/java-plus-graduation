@@ -16,7 +16,7 @@ import java.util.List;
 @Slf4j
 public class StatClient {
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private final String statServerUri = "http://stat-server"; // только потому что code-style не пропускает константу..
+    private final String statServerUri = "http://stats-server"; // только потому что code-style не пропускает константу..
     private final RestTemplate restTemplate;
 
     public StatClient(RestTemplate restTemplate) {
