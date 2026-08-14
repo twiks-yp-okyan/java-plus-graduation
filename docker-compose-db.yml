@@ -1,0 +1,36 @@
+services:
+  main-service-db:
+    image: postgres:16.1
+    container_name: postgres-main-service
+    ports:
+      - "6541:5432"
+    environment:
+      - POSTGRES_PASSWORD=mainservice
+      - POSTGRES_USER=mainservice
+      - POSTGRES_DB=mainservicedb
+    healthcheck:
+      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      timeout: 5s
+      interval: 5s
+      retries: 10
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/etc/timezone:/etc/timezone:ro"
+
+  stat-server-db:
+    image: postgres:16.1
+    container_name: postgres-stat-server
+    ports:
+      - "6542:5432"
+    environment:
+      - POSTGRES_PASSWORD=stat
+      - POSTGRES_USER=stat
+      - POSTGRES_DB=statdb
+    healthcheck:
+      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      timeout: 5s
+      interval: 5s
+      retries: 10
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/etc/timezone:/etc/timezone:ro"

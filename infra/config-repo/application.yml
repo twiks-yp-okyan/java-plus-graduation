@@ -1,0 +1,10 @@
+logging:
+  level:
+    root: INFO
+    org:
+      springframework: ERROR
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/

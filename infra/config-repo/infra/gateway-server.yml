@@ -1,0 +1,61 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+      routes:
+        - id: main-service-admin
+          uri: lb://main-service
+          predicates:
+            - Path=/admin/**
+
+        - id: main-service-categories
+          uri: lb://main-service
+          predicates:
+            - Path=/categories/**
+
+        - id: main-service-comments
+          uri: lb://main-service
+          predicates:
+            - Path=/comments/**
+
+        - id: main-service-compilations
+          uri: lb://main-service
+          predicates:
+            - Path=/compilations/**
+
+        - id: main-service-events
+          uri: lb://main-service
+          predicates:
+            - Path=/events/**
+
+        - id: main-service-users
+          uri: lb://main-service
+          predicates:
+            - Path=/users/**
+
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowed-origins:
+              - http://localhost:3000
+              - http://localhost:5173
+              - http://localhost:8443
+            allowed-methods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowed-headers:
+              - '*'
+            exposed-headers:
+              - Location
+            allow-credentials: true
+            max-age: 3600
