@@ -1,5 +1,6 @@
 package ru.practicum.explorewithme.service.event;
 
+import feign.FeignException;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
@@ -16,9 +17,11 @@ import ru.practicum.explorewithme.dto.EndpointHit;
 import ru.practicum.explorewithme.dto.ViewStats;
 import ru.practicum.explorewithme.dto.category.CategoryDto;
 import ru.practicum.explorewithme.dto.event.*;
+import ru.practicum.explorewithme.dto.user.UserDto;
 import ru.practicum.explorewithme.exception.BadRequestException;
 import ru.practicum.explorewithme.exception.ConflictDataException;
 import ru.practicum.explorewithme.exception.NotFoundException;
+import ru.practicum.explorewithme.feign.UserClient;
 import ru.practicum.explorewithme.mapper.EventMapper;
 import ru.practicum.explorewithme.mapper.LocationMapper;
 import ru.practicum.explorewithme.model.category.Category;
@@ -28,9 +31,7 @@ import ru.practicum.explorewithme.model.event.StateAction;
 import ru.practicum.explorewithme.model.location.Location;
 import ru.practicum.explorewithme.model.request.Request;
 import ru.practicum.explorewithme.model.request.Status;
-import ru.practicum.explorewithme.model.user.User;
 import ru.practicum.explorewithme.repository.EventRepository;
-import ru.practicum.explorewithme.repository.UserRepository;
 import ru.practicum.explorewithme.service.category.CategoryService;
 import ru.practicum.explorewithme.service.request.RequestService;
 
@@ -46,7 +47,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EventServiceImpl implements EventService {
     private final EventRepository eventRepository;
-    private final UserRepository userRepository;
+    private final UserClient userClient;
     private final RequestService requestService;
     private final CategoryService categoryService;
     private final StatClient statClient;
@@ -69,7 +70,7 @@ public class EventServiceImpl implements EventService {
             List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
 
             if (eventAdminRequest.users() != null && !eventAdminRequest.users().isEmpty()) {
-                predicates.add(root.get("initiator").get("id").in(eventAdminRequest.users()));
+                predicates.add(root.get("initiatorId").in(eventAdminRequest.users()));
             }
             if (states != null && !states.isEmpty()) {
                 predicates.add(root.get("state").in(states));
@@ -103,7 +104,12 @@ public class EventServiceImpl implements EventService {
             Long stat = viewByEventIds.get(event.getId());
             Long resultStat = stat == null ? 0 : stat;
 
-            return EventMapper.toEventFullDto(event, amountRequestResult, resultStat);
+            return EventMapper.toEventFullDto(
+                    event,
+                    getUserById(event.getInitiatorId()),
+                    amountRequestResult,
+                    resultStat
+            );
         });
 
         log.info("Return event by param={}", returnedPage);
@@ -114,7 +120,8 @@ public class EventServiceImpl implements EventService {
     @Transactional
     public EventFullDto create(Long userId, NewEventDto newEventDto) {
         log.info("Try to create event by userId={}", userId);
-        User initiator = getUserById(userId);
+        UserDto initiator = getUserById(userId);
+        log.debug("Event Initiator = {}", initiator);
         CategoryDto categoryDto = categoryService.getCateGoryById(newEventDto.getCategory());
         checkParticipantLimit(newEventDto.getParticipantLimit());
 
@@ -124,7 +131,7 @@ public class EventServiceImpl implements EventService {
                 .createdOn(LocalDateTime.now())
                 .description(newEventDto.getDescription())
                 .eventDate(parseDate(newEventDto.getEventDate()))
-                .initiator(initiator)
+                .initiatorId(initiator.getId())
                 .location(LocationMapper.mapToLocation(newEventDto.getLocation()))
                 .paid(newEventDto.getPaid())
                 .participantLimit(newEventDto.getParticipantLimit())
@@ -133,9 +140,9 @@ public class EventServiceImpl implements EventService {
                 .state(State.PENDING)
                 .title(newEventDto.getTitle())
                 .build();
-
         Event savedEvent = eventRepository.save(event);
-        return EventMapper.toEventFullDto(savedEvent, 0L, 0L);
+        log.debug("Сохранен новый ивент с id = {}; автор - id = {}", savedEvent.getId(), savedEvent.getInitiatorId());
+        return EventMapper.toEventFullDto(savedEvent, initiator, 0L, 0L);
     }
 
     @Override
@@ -143,15 +150,15 @@ public class EventServiceImpl implements EventService {
         Event event = getEventByUserIdAndIdOrThrow(userId, eventId);
         Long confirmedRequests = requestService.countConfirmedRequestsByEventId(eventId);
         Long views = getNotUniqueStatsByEventId(eventId, event.getCreatedOn());
-        return EventMapper.toEventFullDto(event, confirmedRequests, views);
+        return EventMapper.toEventFullDto(event, getUserById(event.getInitiatorId()), confirmedRequests, views);
     }
 
     @Override
     public List<EventShortDto> getByUserId(Long userId, int from, int size) {
-        log.info("Try to ger List<EventShortDto> by userId={}, from={}, size={}", userId, from, size);
-        getUserById(userId);
+        log.debug("Try to get List<EventShortDto> by userId={}, from={}, size={}", userId, from, size);
+        UserDto user = getUserById(userId);
         PageRequest pageRequest = PageRequest.of(from > 0 ? from / size : 0, size);
-        Page<Event> page = eventRepository.findAllByInitiatorId(userId, pageRequest);
+        Page<Event> page = eventRepository.findAllByInitiatorId(user.getId(), pageRequest);
         if (page.isEmpty()) {
             return List.of();
         }
@@ -164,6 +171,7 @@ public class EventServiceImpl implements EventService {
         return page.getContent().stream()
                 .map(event -> EventMapper.toEventShortDto(
                         event,
+                        getUserById(event.getInitiatorId()),
                         amountRequestsByEventIds.getOrDefault(event.getId(), 0L),
                         viewByEventIds.getOrDefault(event.getId(), 0L)))
                 .toList();
@@ -208,6 +216,7 @@ public class EventServiceImpl implements EventService {
                 .limit(size)
                 .map(event -> EventMapper.toEventShortDto(
                         event,
+                        getUserById(event.getInitiatorId()),
                         confirmedRequestsByEventIds.getOrDefault(event.getId(), 0L),
                         viewsByEventIds.getOrDefault(event.getId(), 0L)))
                 .toList();
@@ -224,7 +233,7 @@ public class EventServiceImpl implements EventService {
         Long confirmedRequests = requestService.countConfirmedRequestsByEventId(eventId);
         Long views = getNotUniqueStatsByEventId(eventId, event.getCreatedOn());
         saveHit(requestUri, ip);
-        return EventMapper.toEventFullDto(event, confirmedRequests, views);
+        return EventMapper.toEventFullDto(event, getUserById(event.getInitiatorId()), confirmedRequests, views);
     }
 
     @Override
@@ -276,14 +285,11 @@ public class EventServiceImpl implements EventService {
         Event savedEvent = eventRepository.save(event);
         Long confirmedRequests = requestService.countConfirmedRequestsByEventId(savedEvent.getId());
         Long views = getNotUniqueStatsByEventId(savedEvent.getId(), savedEvent.getCreatedOn());
-        return EventMapper.toEventFullDto(savedEvent, confirmedRequests, views);
-    }
-
-    private void checkParticipantLimit(Integer participantLimit) {
-        if (participantLimit != null && participantLimit < 0) {
-            log.error("ParticipantLimit can't be negative ={}", participantLimit);
-            throw new BadRequestException("ParticipantLimit can't be negative");
-        }
+        return EventMapper.toEventFullDto(
+                savedEvent,
+                getUserById(savedEvent.getInitiatorId()),
+                confirmedRequests,
+                views);
     }
 
     @Override
@@ -302,7 +308,18 @@ public class EventServiceImpl implements EventService {
         Long amountRequestsByEventId = requestService.countConfirmedRequestsByEventId(savedEvent.getId());
         Long viewByEventId = getNotUniqueStatsByEventId(savedEvent.getId(), savedEvent.getCreatedOn());
 
-        return EventMapper.toEventFullDto(savedEvent, amountRequestsByEventId, viewByEventId);
+        return EventMapper.toEventFullDto(
+                savedEvent,
+                getUserById(savedEvent.getInitiatorId()),
+                amountRequestsByEventId,
+                viewByEventId);
+    }
+
+    private void checkParticipantLimit(Integer participantLimit) {
+        if (participantLimit != null && participantLimit < 0) {
+            log.error("ParticipantLimit can't be negative ={}", participantLimit);
+            throw new BadRequestException("ParticipantLimit can't be negative");
+        }
     }
 
     private Set<Long> getEventId(Page<Event> page) {
@@ -459,14 +476,18 @@ public class EventServiceImpl implements EventService {
         return event;
     }
 
-    private User getUserById(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("User not found by ID=" + userId));
+    private UserDto getUserById(Long userId) {
+        try {
+            log.debug("Попытка получить пользователя из user-service по id = {}", userId);
+            return userClient.getById(userId);
+        } catch (FeignException.NotFound e) {
+            throw new NotFoundException("User not found by ID=" + userId);
+        }
     }
 
     private Event getEventByUserIdAndIdOrThrow(Long userId, Long eventId) {
-        getUserById(userId);
-        return eventRepository.findByIdAndInitiatorId(eventId, userId)
+        UserDto user = getUserById(userId);
+        return eventRepository.findByIdAndInitiatorId(eventId, user.getId())
                 .orElseThrow(() -> new NotFoundException("Event not found by ID=" + eventId));
     }
 

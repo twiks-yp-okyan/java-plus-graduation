@@ -8,6 +8,49 @@ spring:
         locator:
           enabled: false
       routes:
+        - id: user-service-admin-read
+          uri: lb://user-service
+          predicates:
+            - Path=/admin/users/**
+            - Method=GET
+          filters:
+            - name: Retry
+              args:
+                retries: 2
+                statuses:
+                  - BAD_GATEWAY
+                  - SERVICE_UNAVAILABLE
+                  - GATEWAY_TIMEOUT
+                methods:
+                  - GET
+                backoff:
+                  firstBackoff: 100ms
+                  maxBackoff: 500ms
+
+        - id: user-service-admin
+          uri: lb://user-service
+          predicates:
+            - Path=/admin/users/**
+
+        - id: user-service-read
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+            - Method=GET
+          filters:
+              - name: Retry
+                args:
+                  retries: 2
+                  statuses:
+                    - BAD_GATEWAY
+                    - SERVICE_UNAVAILABLE
+                    - GATEWAY_TIMEOUT
+                  methods:
+                    - GET
+                  backoff:
+                    firstBackoff: 100ms
+                    maxBackoff: 500ms
+
         - id: main-service-admin
           uri: lb://main-service
           predicates:

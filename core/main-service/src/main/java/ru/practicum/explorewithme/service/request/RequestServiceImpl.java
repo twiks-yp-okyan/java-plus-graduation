@@ -1,5 +1,6 @@
 package ru.practicum.explorewithme.service.request;
 
+import feign.FeignException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.explorewithme.dto.request.EventRequestStatusUpdateRequest;
 import ru.practicum.explorewithme.dto.request.EventRequestStatusUpdateResult;
 import ru.practicum.explorewithme.dto.request.ParticipationRequestDto;
+import ru.practicum.explorewithme.dto.user.UserDto;
+import ru.practicum.explorewithme.feign.UserClient;
 import ru.practicum.explorewithme.repository.request.RequestCountProjection;
 import ru.practicum.explorewithme.exception.BadRequestException;
 import ru.practicum.explorewithme.exception.ConflictDataException;
@@ -18,7 +21,6 @@ import ru.practicum.explorewithme.model.event.Event;
 import ru.practicum.explorewithme.model.event.State;
 import ru.practicum.explorewithme.model.request.Request;
 import ru.practicum.explorewithme.model.request.Status;
-import ru.practicum.explorewithme.model.user.User;
 import ru.practicum.explorewithme.repository.request.RequestRepository;
 
 import java.time.LocalDateTime;
@@ -29,12 +31,13 @@ import java.util.stream.Collectors;
 @Slf4j
 @RequiredArgsConstructor
 public class RequestServiceImpl implements RequestService {
-    private static final int ZERO_AVALIBLE_PARTICIPANT_SLOTS = 0;
+    private static final int ZERO_AVAILABLE_PARTICIPANT_SLOTS = 0;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     private final RequestRepository requestRepository;
+    private final UserClient userClient;
 
     @Override
     public Map<Long, Long> countRequestsByEventIds(Set<Long> eventIds) {
@@ -87,9 +90,9 @@ public class RequestServiceImpl implements RequestService {
     @Override
     public List<ParticipationRequestDto> getUserRequests(Long userId) {
         log.info("Try to get User Requests by userId={}", userId);
-        checkUserExistInDB(userId);
-        List<Request> requests = requestRepository.findRequestsByRequesterId(userId);
-        log.info("Requests found successfully by userId={}", userId);
+        UserDto user = getUserById(userId);
+        List<Request> requests = requestRepository.findRequestsByRequesterId(user.getId());
+        log.info("Requests found successfully by userId={}", user.getId());
         return requests.stream()
                 .map(RequestMapper::toParticipationRequestDto)
                 .toList();
@@ -100,14 +103,13 @@ public class RequestServiceImpl implements RequestService {
     public ParticipationRequestDto addUserRequest(Long requesterId, Long eventId) {
         log.info("Try to make new Request");
 
-        checkUserExistInDB(requesterId);
+        UserDto user = getUserById(requesterId);
         checkEventExistInDB(eventId);
-        checkRequestNotExistInDB(requesterId, eventId);
+        checkRequestNotExistInDB(user.getId(), eventId);
 
         Event eventProxy = entityManager.getReference(Event.class, eventId);
-        User userProxy = entityManager.getReference(User.class, requesterId);
 
-        checkRequesterIsNotOwnerEvent(requesterId, eventProxy);
+        checkRequesterIsNotOwnerEvent(user.getId(), eventProxy);
         checkEventIsAbleToRequest(eventProxy);
 
         Status requestStatus = Boolean.FALSE.equals(eventProxy.getRequestModeration())
@@ -117,7 +119,7 @@ public class RequestServiceImpl implements RequestService {
 
         LocalDateTime created = LocalDateTime.now();
 
-        Request newRequest = new Request(null, created, eventProxy, userProxy, requestStatus);
+        Request newRequest = new Request(null, created, eventProxy, user.getId(), requestStatus);
 
         Request savedRequest = requestRepository.save(newRequest);
         ParticipationRequestDto requestDto = RequestMapper.toParticipationRequestDto(savedRequest);
@@ -173,13 +175,13 @@ public class RequestServiceImpl implements RequestService {
         }
 
         if (Boolean.FALSE.equals(event.getRequestModeration())
-                || Objects.equals(event.getParticipantLimit(), ZERO_AVALIBLE_PARTICIPANT_SLOTS)) {
+                || Objects.equals(event.getParticipantLimit(), ZERO_AVAILABLE_PARTICIPANT_SLOTS)) {
             throw new ConflictDataException("Confirmation is not required for this event");
         }
 
         long confirmedCount = countConfirmedRequestsByEventId(eventId);
         int availableSlots = event.getParticipantLimit() - (int) confirmedCount;
-        if (availableSlots <= ZERO_AVALIBLE_PARTICIPANT_SLOTS) {
+        if (availableSlots <= ZERO_AVAILABLE_PARTICIPANT_SLOTS) {
             throw new ConflictDataException("Event=" + eventId + " has no available spots for participation");
         }
 
@@ -193,7 +195,7 @@ public class RequestServiceImpl implements RequestService {
         List<Request> rejectedRequests = new ArrayList<>();
 
         for (Request request : requests) {
-            if (availableSlots > ZERO_AVALIBLE_PARTICIPANT_SLOTS) {
+            if (availableSlots > ZERO_AVAILABLE_PARTICIPANT_SLOTS) {
                 request.setStatus(Status.CONFIRMED);
                 confirmedRequests.add(request);
                 availableSlots--;
@@ -203,7 +205,7 @@ public class RequestServiceImpl implements RequestService {
             }
         }
 
-        if (availableSlots == ZERO_AVALIBLE_PARTICIPANT_SLOTS) {
+        if (availableSlots == ZERO_AVAILABLE_PARTICIPANT_SLOTS) {
             Set<Long> handledRequestIds = requests.stream()
                     .map(Request::getId)
                     .collect(HashSet::new, HashSet::add, HashSet::addAll);
@@ -233,17 +235,17 @@ public class RequestServiceImpl implements RequestService {
     @Transactional
     public ParticipationRequestDto rejectUserRequest(Long userId, Long requestId) {
         log.info("Try to reject requestId={} by userId={}", userId, requestId);
-        checkUserExistInDB(userId);
+        UserDto user = getUserById(userId);
         checkRequestExistInDB(requestId);
         Optional<Request> requestOptional = requestRepository.findById(requestId);
         Request request = requestOptional.get();
-        if (!request.getRequester().getId().equals(userId)) {
-            log.error("Canceled request can only requestor={}", request.getRequester().getId());
+        if (!request.getRequesterId().equals(user.getId())) {
+            log.error("Canceled request can only requestor={}", request.getRequesterId());
             throw new ConflictDataException("Canceled request can only requestor");
         }
         request.setStatus(Status.CANCELED);
         Request savedRequest = requestRepository.save(request);
-        log.info("Successfully rejected requestId={} by userId={}", userId, requestId);
+        log.info("Successfully rejected requestId={} by userId={}", requestId, user.getId());
         return RequestMapper.toParticipationRequestDto(savedRequest);
     }
 
@@ -271,7 +273,7 @@ public class RequestServiceImpl implements RequestService {
     }
 
     private void checkRequesterIsNotOwnerEvent(Long requesterId, Event eventProxy) {
-        if (requesterId.equals(eventProxy.getInitiator().getId())) {
+        if (requesterId.equals(eventProxy.getInitiatorId())) {
             log.error("Requester={} cant make request for its event", requesterId);
             throw new ConflictDataException("Requester cant make request for its event");
         }
@@ -282,13 +284,6 @@ public class RequestServiceImpl implements RequestService {
         if (requestOptional.isPresent()) {
             log.error("Request with requesterId={} and eventId={} is already in DB", requesterId, eventId);
             throw new ConflictDataException("Request with requesterId and eventId is already in DB");
-        }
-    }
-
-    private void checkUserExistInDB(Long userId) {
-        if (!requestRepository.existsUserById(userId)) {
-            log.error("User was not found with id={}", userId);
-            throw new NotFoundException("User was not found with id=" + userId);
         }
     }
 
@@ -325,12 +320,21 @@ public class RequestServiceImpl implements RequestService {
     }
 
     private Event getEventByOwnerOrThrow(Long userId, Long eventId) {
-        checkUserExistInDB(userId);
+        UserDto user = getUserById(userId);
         checkEventExistInDB(eventId);
         Event event = entityManager.getReference(Event.class, eventId);
-        if (!event.getInitiator().getId().equals(userId)) {
+        if (!event.getInitiatorId().equals(user.getId())) {
             throw new NotFoundException("Event was not found with id=" + eventId);
         }
         return event;
+    }
+
+    private UserDto getUserById(Long userId) {
+        try {
+            log.debug("Попытка получить пользователя из user-service по id = {}", userId);
+            return userClient.getById(userId);
+        } catch (FeignException.NotFound e) {
+            throw new NotFoundException("User not found by ID=" + userId);
+        }
     }
 }

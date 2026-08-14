@@ -5,7 +5,6 @@ import ru.practicum.explorewithme.dto.comment.CommentDto;
 import ru.practicum.explorewithme.dto.comment.NewComment;
 import ru.practicum.explorewithme.model.comment.Comment;
 import ru.practicum.explorewithme.model.event.Event;
-import ru.practicum.explorewithme.model.user.User;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -14,29 +13,23 @@ import java.time.format.DateTimeFormatter;
 public class CommentMapper {
     private final DateTimeFormatter customFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    public Comment toComment(NewComment newComment, User user, Event event) {
+    public Comment toComment(NewComment newComment, Long userId, Event event) {
         return Comment.builder()
                 .text(newComment.getText())
                 .createdOn(LocalDateTime.now())
-                .user(user)
+                .userId(userId)
                 .event(event)
                 .build();
     }
 
-    public static Comment toComment(Comment comment, NewComment newComment) {
-        return Comment.builder()
-                .text(newComment.getText())
-                .createdOn(comment.getCreatedOn())
-                .user(comment.getUser())
-                .event(comment.getEvent())
-                .id(comment.getId())
-                .build();
+    public static void updateComment(Comment comment, NewComment newComment) {
+        comment.setText(newComment.getText());
     }
 
     public CommentDto toDto(Comment comment) {
         return CommentDto.builder()
                 .id(comment.getId())
-                .user(comment.getUser().getId())
+                .user(comment.getUserId())
                 .event(comment.getEvent().getId())
                 .text(comment.getText())
                 .createdOn(comment.getCreatedOn().format(customFormatter))

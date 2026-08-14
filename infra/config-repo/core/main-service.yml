@@ -18,5 +18,5 @@ stats:
 
 logging:
   level:
-    ru.practicum.explorewithme: INFO
+    ru.practicum.explorewithme: DEBUG
     ru.practicum.explorewithme.client: DEBUG

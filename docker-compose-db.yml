@@ -34,3 +34,21 @@ services:
     volumes:
       - "/etc/localtime:/etc/localtime:ro"
       - "/etc/timezone:/etc/timezone:ro"
+
+  user-service-db:
+    image: postgres:16.1
+    container_name: postgres-user-service
+    ports:
+      - "6543:5432"
+    environment:
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_USER=login
+      - POSTGRES_DB=user-db
+    healthcheck:
+      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      timeout: 5s
+      interval: 5s
+      retries: 10
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/etc/timezone:/etc/timezone:ro"

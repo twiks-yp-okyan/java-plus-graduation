@@ -12,6 +12,7 @@
     <artifactId>core</artifactId>
     <modules>
         <module>main-service</module>
+        <module>user-service</module>
     </modules>
 
     <properties>

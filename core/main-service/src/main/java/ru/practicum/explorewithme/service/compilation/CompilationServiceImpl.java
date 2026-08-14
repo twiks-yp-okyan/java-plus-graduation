@@ -1,5 +1,6 @@
 package ru.practicum.explorewithme.service.compilation;
 
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -14,8 +15,10 @@ import ru.practicum.explorewithme.dto.compilation.CompilationDto;
 import ru.practicum.explorewithme.dto.compilation.NewCompilationDto;
 import ru.practicum.explorewithme.dto.compilation.UpdateCompilationRequest;
 import ru.practicum.explorewithme.dto.event.EventShortDto;
+import ru.practicum.explorewithme.dto.user.UserDto;
 import ru.practicum.explorewithme.exception.ConflictDataException;
 import ru.practicum.explorewithme.exception.NotFoundException;
+import ru.practicum.explorewithme.feign.UserClient;
 import ru.practicum.explorewithme.mapper.CompilationMapper;
 import ru.practicum.explorewithme.mapper.EventMapper;
 import ru.practicum.explorewithme.model.compilation.Compilation;
@@ -40,6 +43,7 @@ public class CompilationServiceImpl implements CompilationService {
     private final EventRepository eventRepository;
     private final RequestService requestService;
     private final StatClient statClient;
+    private final UserClient userClient;
 
     private static final String EVENT_URI_PREFIX = "/events/";
 
@@ -159,6 +163,7 @@ public class CompilationServiceImpl implements CompilationService {
         LinkedHashSet<EventShortDto> events = compilation.getEvents().stream()
                 .map(event -> EventMapper.toEventShortDto(
                         event,
+                        getUserById(event.getInitiatorId()),
                         requestsByEventIds.getOrDefault(event.getId(), 0L),
                         viewsByEventIds.getOrDefault(event.getId(), 0L)))
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
@@ -189,5 +194,14 @@ public class CompilationServiceImpl implements CompilationService {
             result.put(eventId, viewStat.hits());
         }
         return result;
+    }
+
+    private UserDto getUserById(Long userId) {
+        try {
+            log.debug("Попытка получить пользователя из user-service по id = {}", userId);
+            return userClient.getById(userId);
+        } catch (FeignException.NotFound e) {
+            throw new NotFoundException("User not found by ID=" + userId);
+        }
     }
 }

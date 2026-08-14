@@ -7,7 +7,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import ru.practicum.explorewithme.model.category.Category;
 import ru.practicum.explorewithme.model.location.Location;
-import ru.practicum.explorewithme.model.user.User;
 
 import java.time.LocalDateTime;
 
@@ -40,9 +39,8 @@ public class Event {
     @Column(name = "event_date", nullable = false)
     private LocalDateTime eventDate;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User initiator;
+    @Column(name = "user_id", nullable = false)
+    private Long initiatorId;
 
     @ManyToOne(cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
     @JoinColumn(name = "location_id", nullable = false)

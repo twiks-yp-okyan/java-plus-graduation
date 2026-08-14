@@ -1,5 +1,6 @@
 package ru.practicum.explorewithme.service.comment;
 
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -8,17 +9,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.explorewithme.dto.comment.CommentDto;
 import ru.practicum.explorewithme.dto.comment.NewComment;
+import ru.practicum.explorewithme.dto.user.UserDto;
 import ru.practicum.explorewithme.exception.ConflictDataException;
 import ru.practicum.explorewithme.exception.NotFoundException;
+import ru.practicum.explorewithme.feign.UserClient;
 import ru.practicum.explorewithme.mapper.CommentMapper;
 import ru.practicum.explorewithme.model.comment.Comment;
 import ru.practicum.explorewithme.model.event.Event;
 import ru.practicum.explorewithme.model.request.Request;
 import ru.practicum.explorewithme.model.request.Status;
-import ru.practicum.explorewithme.model.user.User;
 import ru.practicum.explorewithme.repository.CommentRepository;
 import ru.practicum.explorewithme.repository.EventRepository;
-import ru.practicum.explorewithme.repository.UserRepository;
 import ru.practicum.explorewithme.repository.request.RequestRepository;
 
 import java.time.LocalDateTime;
@@ -32,20 +33,20 @@ public class CommentServiceImpl implements CommentService {
     private static final int AVAILABLE_TIME_TO_COMMENT_EDIT = 24;
     private final CommentRepository commentRepository;
     private final EventRepository eventRepository;
-    private final UserRepository userRepository;
+    private final UserClient userClient;
     private final RequestRepository requestRepository;
 
     @Transactional
     @Override
     public CommentDto create(Long userId, Long eventId, NewComment newComment) {
         log.info("Try to create comment userId={}, eventId={}, newComment={}", userId, eventId, newComment);
-        User user = getUserFromDB(userId);
+        UserDto user = getUserById(userId);
         Event event = getEventFromDB(eventId);
-        checkUserNotEventOwner(event, user);
+        checkUserNotEventOwner(event, user.getId());
         checkNoCommentFromUserToEvent(userId, eventId);
-        Request request = getRequestFromDB(event, user);
+        Request request = getRequestFromDB(event, user.getId());
         checkRequestWasConfirmed(request);
-        Comment comment = CommentMapper.toComment(newComment, user, event);
+        Comment comment = CommentMapper.toComment(newComment, user.getId(), event);
         Comment saveComment = commentRepository.save(comment);
         log.info("Comment was saved");
         return CommentMapper.toDto(saveComment);
@@ -58,8 +59,8 @@ public class CommentServiceImpl implements CommentService {
         Comment comment = getCommentFromDB(commentId);
         checkUserIsCommentAuthor(userId, comment);
         checkCommentAvailableToEdit(comment);
-        Comment updatedComment = CommentMapper.toComment(comment, newComment);
-        Comment savedComment = commentRepository.saveAndFlush(updatedComment);
+        CommentMapper.updateComment(comment, newComment);
+        Comment savedComment = commentRepository.saveAndFlush(comment);
         log.info("Comment was updated");
         return CommentMapper.toDto(savedComment);
     }
@@ -87,9 +88,9 @@ public class CommentServiceImpl implements CommentService {
     @Override
     public CommentDto getByUserIdAndId(Long userId, Long commentId) {
         log.info("Try to get comment by userId={}, commentId={}", userId, commentId);
-        getUserFromDB(userId);
+        UserDto user = getUserById(userId);
         Comment comment = getCommentFromDB(commentId);
-        if (!comment.getUser().getId().equals(userId)) {
+        if (!comment.getUserId().equals(user.getId())) {
             throw new NotFoundException("Couldn't find comment by id=" + commentId + " for userId=" + userId);
         }
         return CommentMapper.toDto(comment);
@@ -114,8 +115,8 @@ public class CommentServiceImpl implements CommentService {
     @Override
     public Page<CommentDto> getAll(Long userId, Pageable pageable) {
         log.info("Try to get all comments userId={}, pageable={}", userId, pageable);
-        getUserFromDB(userId);
-        Page<Comment> comments = commentRepository.findAllByUserId(userId, pageable);
+        UserDto user = getUserById(userId);
+        Page<Comment> comments = commentRepository.findAllByUserId(user.getId(), pageable);
         log.info("Get all comments");
         return comments.map(CommentMapper::toDto);
     }
@@ -127,7 +128,7 @@ public class CommentServiceImpl implements CommentService {
     }
 
     private void checkUserIsCommentAuthor(Long userId, Comment comment) {
-        if (!comment.getUser().getId().equals(userId)) {
+        if (!comment.getUserId().equals(userId)) {
             throw new ConflictDataException("Edit comment can only author");
         }
     }
@@ -152,15 +153,15 @@ public class CommentServiceImpl implements CommentService {
         }
     }
 
-    private Request getRequestFromDB(Event event, User user) {
-        Optional<Request> requestOptional = requestRepository.findByRequesterIdAndEventId(user.getId(), event.getId());
+    private Request getRequestFromDB(Event event, Long userId) {
+        Optional<Request> requestOptional = requestRepository.findByRequesterIdAndEventId(userId, event.getId());
         return requestOptional.orElseThrow(
                 () -> new NotFoundException("Couldn't find request from requestorId="
-                        + user.getId() + " to eventId=" + event.getId()));
+                        + userId + " to eventId=" + event.getId()));
     }
 
-    private void checkUserNotEventOwner(Event event, User user) {
-        if (event.getInitiator().getId().equals(user.getId())) {
+    private void checkUserNotEventOwner(Event event, Long userId) {
+        if (event.getInitiatorId().equals(userId)) {
             throw new ConflictDataException("User cant create comment for his event");
         }
     }
@@ -170,8 +171,12 @@ public class CommentServiceImpl implements CommentService {
         return eventOptional.orElseThrow(() -> new NotFoundException("Couldn't find event by id=" + eventId));
     }
 
-    private User getUserFromDB(Long userId) {
-        Optional<User> userOptional = userRepository.findById(userId);
-        return userOptional.orElseThrow(() -> new NotFoundException("Couldn't find user by id=" + userId));
+    private UserDto getUserById(Long userId) {
+        try {
+            log.debug("Попытка получить пользователя из user-service по id = {}", userId);
+            return userClient.getById(userId);
+        } catch (FeignException.NotFound e) {
+            throw new NotFoundException("User not found by ID=" + userId);
+        }
     }
 }
