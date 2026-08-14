@@ -1,6 +1,7 @@
 package ru.practicum.explorewithme.client;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -16,8 +17,10 @@ import java.util.List;
 @Slf4j
 public class StatClient {
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private final String statServerUri = "http://stats-server"; // только потому что code-style не пропускает константу..
     private final RestTemplate restTemplate;
+    @Value("${stats.server.uri}")
+    private String statServerUri;
+
 
     public StatClient(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;

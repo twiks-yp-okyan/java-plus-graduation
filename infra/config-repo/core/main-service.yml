@@ -12,6 +12,10 @@ spring:
 server:
   port: 0
 
+stats:
+  server:
+    uri: http://stats-server
+
 logging:
   level:
     ru.practicum.explorewithme: INFO
