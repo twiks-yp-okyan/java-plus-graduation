@@ -1,12 +1,12 @@
-package ru.practicum.explorewithme.controller.request;
+package ru.yandex.practicum.request.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import ru.practicum.explorewithme.dto.request.ParticipationRequestDto;
-import ru.practicum.explorewithme.service.request.RequestService;
+import ru.yandex.practicum.request.dto.ParticipationRequestDto;
+import ru.yandex.practicum.request.service.RequestService;
 
 import java.util.List;
 
@@ -30,7 +30,7 @@ public class RequestPrivateController {
     }
 
     @PatchMapping("/{requestId}/cancel")
-    public ResponseEntity<ParticipationRequestDto> updateUserRequest(@PathVariable Long userId,
+    public ResponseEntity<ParticipationRequestDto> cancelUserRequest(@PathVariable Long userId,
                                                                      @PathVariable Long requestId) {
         ParticipationRequestDto requestDto = requestService.rejectUserRequest(userId, requestId);
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(requestDto);

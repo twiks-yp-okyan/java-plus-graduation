@@ -12,15 +12,13 @@ import ru.practicum.explorewithme.dto.comment.NewComment;
 import ru.practicum.explorewithme.dto.user.UserDto;
 import ru.practicum.explorewithme.exception.ConflictDataException;
 import ru.practicum.explorewithme.exception.NotFoundException;
+import ru.practicum.explorewithme.feign.RequestClient;
 import ru.practicum.explorewithme.feign.UserClient;
 import ru.practicum.explorewithme.mapper.CommentMapper;
 import ru.practicum.explorewithme.model.comment.Comment;
 import ru.practicum.explorewithme.model.event.Event;
-import ru.practicum.explorewithme.model.request.Request;
-import ru.practicum.explorewithme.model.request.Status;
 import ru.practicum.explorewithme.repository.CommentRepository;
 import ru.practicum.explorewithme.repository.EventRepository;
-import ru.practicum.explorewithme.repository.request.RequestRepository;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -34,7 +32,7 @@ public class CommentServiceImpl implements CommentService {
     private final CommentRepository commentRepository;
     private final EventRepository eventRepository;
     private final UserClient userClient;
-    private final RequestRepository requestRepository;
+    private final RequestClient requestClient;
 
     @Transactional
     @Override
@@ -42,10 +40,11 @@ public class CommentServiceImpl implements CommentService {
         log.info("Try to create comment userId={}, eventId={}, newComment={}", userId, eventId, newComment);
         UserDto user = getUserById(userId);
         Event event = getEventFromDB(eventId);
+
         checkUserNotEventOwner(event, user.getId());
         checkNoCommentFromUserToEvent(userId, eventId);
-        Request request = getRequestFromDB(event, user.getId());
-        checkRequestWasConfirmed(request);
+        checkRequestWasConfirmed(event.getId(), user.getId());
+
         Comment comment = CommentMapper.toComment(newComment, user.getId(), event);
         Comment saveComment = commentRepository.save(comment);
         log.info("Comment was saved");
@@ -147,17 +146,10 @@ public class CommentServiceImpl implements CommentService {
         }
     }
 
-    private void checkRequestWasConfirmed(Request request) {
-        if (!request.getStatus().equals(Status.CONFIRMED)) {
+    private void checkRequestWasConfirmed(Long eventId, Long userId) {
+        if (!requestClient.checkUserRequestConfirmation(eventId, userId)) {
             throw new ConflictDataException("Create comment can only event's visitor");
         }
-    }
-
-    private Request getRequestFromDB(Event event, Long userId) {
-        Optional<Request> requestOptional = requestRepository.findByRequesterIdAndEventId(userId, event.getId());
-        return requestOptional.orElseThrow(
-                () -> new NotFoundException("Couldn't find request from requestorId="
-                        + userId + " to eventId=" + event.getId()));
     }
 
     private void checkUserNotEventOwner(Event event, Long userId) {

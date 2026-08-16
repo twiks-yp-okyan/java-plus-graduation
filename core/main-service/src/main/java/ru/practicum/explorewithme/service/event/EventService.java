@@ -32,4 +32,6 @@ public interface EventService {
     EventFullDto update(Long userId, Long eventId, UpdateEventUserRequest updateEvent);
 
     EventFullDto updateEventAdmin(Long eventId, UpdateEventAdminRequest updateEventAdminRequest);
+
+    EventFullDto getById(Long eventId);
 }

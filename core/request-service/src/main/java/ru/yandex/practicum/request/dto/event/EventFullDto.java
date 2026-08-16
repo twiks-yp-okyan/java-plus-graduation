@@ -1,9 +1,9 @@
-package ru.practicum.explorewithme.dto.event;
+package ru.yandex.practicum.request.dto.event;
 
 import lombok.*;
-import ru.practicum.explorewithme.dto.category.CategoryDto;
-import ru.practicum.explorewithme.dto.user.UserShortDto;
-import ru.practicum.explorewithme.model.location.Location;
+import ru.yandex.practicum.request.dto.category.CategoryDto;
+import ru.yandex.practicum.request.dto.location.LocationDto;
+import ru.yandex.practicum.request.dto.user.UserShortDto;
 
 @Builder
 @Getter
@@ -20,7 +20,7 @@ public class EventFullDto {
     private String description;
     private String eventDate;
     private UserShortDto initiator;
-    private Location location;
+    private LocationDto location;
     private Boolean paid;
     private Integer participantLimit;
     private String publishedOn;

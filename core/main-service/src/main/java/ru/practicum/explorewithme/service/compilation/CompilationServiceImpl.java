@@ -18,6 +18,7 @@ import ru.practicum.explorewithme.dto.event.EventShortDto;
 import ru.practicum.explorewithme.dto.user.UserDto;
 import ru.practicum.explorewithme.exception.ConflictDataException;
 import ru.practicum.explorewithme.exception.NotFoundException;
+import ru.practicum.explorewithme.feign.RequestClient;
 import ru.practicum.explorewithme.feign.UserClient;
 import ru.practicum.explorewithme.mapper.CompilationMapper;
 import ru.practicum.explorewithme.mapper.EventMapper;
@@ -25,7 +26,6 @@ import ru.practicum.explorewithme.model.compilation.Compilation;
 import ru.practicum.explorewithme.model.event.Event;
 import ru.practicum.explorewithme.repository.CompilationRepository;
 import ru.practicum.explorewithme.repository.EventRepository;
-import ru.practicum.explorewithme.service.request.RequestService;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -41,7 +41,7 @@ import java.util.Set;
 public class CompilationServiceImpl implements CompilationService {
     private final CompilationRepository compilationRepository;
     private final EventRepository eventRepository;
-    private final RequestService requestService;
+    private final RequestClient requestClient;
     private final StatClient statClient;
     private final UserClient userClient;
 
@@ -157,14 +157,14 @@ public class CompilationServiceImpl implements CompilationService {
                 .map(Event::getId)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
 
-        Map<Long, Long> requestsByEventIds = requestService.countRequestsByEventIds(eventIds);
+        Map<Long, Integer> requestsByEventIds = requestClient.getRequestsCountByEventIds(eventIds);
         Map<Long, Long> viewsByEventIds = getViewsByEventIds(compilation.getEvents());
 
         LinkedHashSet<EventShortDto> events = compilation.getEvents().stream()
                 .map(event -> EventMapper.toEventShortDto(
                         event,
                         getUserById(event.getInitiatorId()),
-                        requestsByEventIds.getOrDefault(event.getId(), 0L),
+                        requestsByEventIds.getOrDefault(event.getId(), 0),
                         viewsByEventIds.getOrDefault(event.getId(), 0L)))
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
 

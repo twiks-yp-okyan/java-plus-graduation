@@ -1,8 +1,8 @@
-package ru.practicum.explorewithme.service.request;
+package ru.yandex.practicum.request.service;
 
-import ru.practicum.explorewithme.dto.request.EventRequestStatusUpdateRequest;
-import ru.practicum.explorewithme.dto.request.EventRequestStatusUpdateResult;
-import ru.practicum.explorewithme.dto.request.ParticipationRequestDto;
+import ru.yandex.practicum.request.dto.EventRequestStatusUpdateRequest;
+import ru.yandex.practicum.request.dto.EventRequestStatusUpdateResult;
+import ru.yandex.practicum.request.dto.ParticipationRequestDto;
 
 import java.util.List;
 import java.util.Map;
@@ -11,11 +11,11 @@ import java.util.Set;
 public interface RequestService {
     Map<Long, Long> countRequestsByEventIds(Set<Long> eventIds);
 
-    Long countRequestsByEventId(Long eventId);
+    Integer countRequestsByEventId(Long eventId);
 
     Map<Long, Long> countConfirmedRequestsByEventIds(Set<Long> eventIds);
 
-    Long countConfirmedRequestsByEventId(Long eventId);
+    Integer countConfirmedRequestsByEventId(Long eventId);
 
     List<ParticipationRequestDto> getUserRequests(Long userId);
 
@@ -28,4 +28,6 @@ public interface RequestService {
                                                        EventRequestStatusUpdateRequest updateRequest);
 
     ParticipationRequestDto rejectUserRequest(Long userId, Long requestId);
+
+    boolean checkUserRequestConfirmation(Long eventId, Long userId);
 }

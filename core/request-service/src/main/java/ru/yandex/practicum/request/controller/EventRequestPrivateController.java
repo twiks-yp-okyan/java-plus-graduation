@@ -1,12 +1,12 @@
-package ru.practicum.explorewithme.controller.request;
+package ru.yandex.practicum.request.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import ru.practicum.explorewithme.dto.request.EventRequestStatusUpdateRequest;
-import ru.practicum.explorewithme.dto.request.EventRequestStatusUpdateResult;
-import ru.practicum.explorewithme.dto.request.ParticipationRequestDto;
-import ru.practicum.explorewithme.service.request.RequestService;
+import ru.yandex.practicum.request.dto.EventRequestStatusUpdateRequest;
+import ru.yandex.practicum.request.dto.EventRequestStatusUpdateResult;
+import ru.yandex.practicum.request.dto.ParticipationRequestDto;
+import ru.yandex.practicum.request.service.RequestService;
 
 import java.util.List;
 

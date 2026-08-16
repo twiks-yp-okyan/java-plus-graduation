@@ -51,6 +51,30 @@ spring:
                     firstBackoff: 100ms
                     maxBackoff: 500ms
 
+        - id: request-service-read
+          uri: lb://request-service
+          predicates:
+            - Path=/users/{userId}/requests/**,/users/{userId}/events/{eventId}/requests
+            - Method=GET
+          filters:
+            - name: Retry
+              args:
+                retries: 2
+                statuses:
+                  - BAD_GATEWAY
+                  - SERVICE_UNAVAILABLE
+                  - GATEWAY_TIMEOUT
+                methods:
+                  - GET
+                backoff:
+                  firstBackoff: 100ms
+                  maxBackoff: 500ms
+
+        - id: request-service
+          uri: lb://request-service
+          predicates:
+            - Path=/users/{userId}/requests/**,/users/{userId}/events/{eventId}/requests
+
         - id: main-service-admin
           uri: lb://main-service
           predicates:
@@ -71,15 +95,15 @@ spring:
           predicates:
             - Path=/compilations/**
 
-        - id: main-service-events
-          uri: lb://main-service
-          predicates:
-            - Path=/events/**
-
         - id: main-service-users
           uri: lb://main-service
           predicates:
             - Path=/users/**
+
+        - id: main-service-users
+          uri: lb://main-service
+          predicates:
+            - Path=/events/**
 
       globalcors:
         add-to-simple-url-handler-mapping: true

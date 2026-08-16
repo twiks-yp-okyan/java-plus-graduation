@@ -1,4 +1,4 @@
-package ru.practicum.explorewithme.dto.request;
+package ru.yandex.practicum.request.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

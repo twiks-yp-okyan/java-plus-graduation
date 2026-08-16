@@ -1,8 +1,7 @@
-package ru.practicum.explorewithme.mapper;
+package ru.yandex.practicum.request.model;
 
 import lombok.experimental.UtilityClass;
-import ru.practicum.explorewithme.dto.request.ParticipationRequestDto;
-import ru.practicum.explorewithme.model.request.Request;
+import ru.yandex.practicum.request.dto.ParticipationRequestDto;
 
 import java.time.format.DateTimeFormatter;
 
@@ -14,7 +13,7 @@ public class RequestMapper {
         return new ParticipationRequestDto(
                 request.getId(),
                 request.getCreated().format(formatter),
-                request.getEvent().getId(),
+                request.getEventId(),
                 request.getRequesterId(),
                 request.getStatus().name());
     }

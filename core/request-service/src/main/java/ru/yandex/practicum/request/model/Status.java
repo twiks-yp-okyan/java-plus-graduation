@@ -1,4 +1,4 @@
-package ru.practicum.explorewithme.model.request;
+package ru.yandex.practicum.request.model;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 

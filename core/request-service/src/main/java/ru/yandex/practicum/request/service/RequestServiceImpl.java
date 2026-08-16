@@ -1,4 +1,4 @@
-package ru.practicum.explorewithme.service.request;
+package ru.yandex.practicum.request.service;
 
 import feign.FeignException;
 import jakarta.persistence.EntityManager;
@@ -7,21 +7,22 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.practicum.explorewithme.dto.request.EventRequestStatusUpdateRequest;
-import ru.practicum.explorewithme.dto.request.EventRequestStatusUpdateResult;
-import ru.practicum.explorewithme.dto.request.ParticipationRequestDto;
-import ru.practicum.explorewithme.dto.user.UserDto;
-import ru.practicum.explorewithme.feign.UserClient;
-import ru.practicum.explorewithme.repository.request.RequestCountProjection;
-import ru.practicum.explorewithme.exception.BadRequestException;
-import ru.practicum.explorewithme.exception.ConflictDataException;
-import ru.practicum.explorewithme.exception.NotFoundException;
-import ru.practicum.explorewithme.mapper.RequestMapper;
-import ru.practicum.explorewithme.model.event.Event;
-import ru.practicum.explorewithme.model.event.State;
-import ru.practicum.explorewithme.model.request.Request;
-import ru.practicum.explorewithme.model.request.Status;
-import ru.practicum.explorewithme.repository.request.RequestRepository;
+import ru.yandex.practicum.request.dto.EventRequestStatusUpdateRequest;
+import ru.yandex.practicum.request.dto.EventRequestStatusUpdateResult;
+import ru.yandex.practicum.request.dto.ParticipationRequestDto;
+import ru.yandex.practicum.request.dto.event.EventFullDto;
+import ru.yandex.practicum.request.dto.event.State;
+import ru.yandex.practicum.request.dto.user.UserDto;
+import ru.yandex.practicum.request.exception.BadRequestException;
+import ru.yandex.practicum.request.exception.ConflictDataException;
+import ru.yandex.practicum.request.exception.NotFoundException;
+import ru.yandex.practicum.request.feign.EventClient;
+import ru.yandex.practicum.request.feign.UserClient;
+import ru.yandex.practicum.request.model.Request;
+import ru.yandex.practicum.request.model.RequestMapper;
+import ru.yandex.practicum.request.model.Status;
+import ru.yandex.practicum.request.repository.RequestCountProjection;
+import ru.yandex.practicum.request.repository.RequestRepository;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -38,52 +39,48 @@ public class RequestServiceImpl implements RequestService {
 
     private final RequestRepository requestRepository;
     private final UserClient userClient;
+    private final EventClient eventClient;
 
     @Override
     public Map<Long, Long> countRequestsByEventIds(Set<Long> eventIds) {
-        log.info("Try to count request by event ids={}", eventIds);
-        if (eventIds == null) {
-            log.error("Try to get requests count by EventIds=null");
-            throw new BadRequestException("Try to get requests count by EventIds=null");
-        }
-        if (eventIds.isEmpty()) {
+        List<RequestCountProjection> results = requestRepository.countRequestsByEventIds(eventIds);
+        if (results.isEmpty()) {
             return new HashMap<>();
         }
-        Map<Long, Long> map = getRequestsByEventIds(eventIds);
-        log.info("Return request by event ids={}", eventIds);
-        return map;
+        return results.stream()
+                .collect(Collectors.toMap(
+                        RequestCountProjection::getEventId,
+                        RequestCountProjection::getConfirmedRequestsAmount
+                ));
     }
 
     @Override
-    public Long countRequestsByEventId(Long eventId) {
-        log.info("Try to count request by event id={}", eventId);
+    public Integer countRequestsByEventId(Long eventId) {
         if (eventId == null) {
             log.error("Try to get request count by EventId=null");
             throw new BadRequestException("Try to get requests count by EventIds=null");
         }
+        log.info("Try to count request by event id={}", eventId);
         return requestRepository.countRequestsByEventId(eventId);
     }
 
     @Override
     public Map<Long, Long> countConfirmedRequestsByEventIds(Set<Long> eventIds) {
         log.info("Try to count confirmed request by event ids={}", eventIds);
-        if (eventIds == null) {
-            log.error("Try to get confirmed requests count by EventIds=null");
-            throw new BadRequestException("Try to get confirmed requests count by EventIds=null");
-        }
-        if (eventIds.isEmpty()) {
+        List<RequestCountProjection> results = requestRepository.countConfirmedRequestsByEventIds(eventIds);
+        if (results.isEmpty()) {
             return new HashMap<>();
         }
-        return getConfirmedRequestsByEventIds(eventIds);
+        return results.stream()
+                .collect(Collectors.toMap(
+                        RequestCountProjection::getEventId,
+                        RequestCountProjection::getConfirmedRequestsAmount
+                ));
     }
 
     @Override
-    public Long countConfirmedRequestsByEventId(Long eventId) {
+    public Integer countConfirmedRequestsByEventId(Long eventId) {
         log.info("Try to count confirmed request by event id={}", eventId);
-        if (eventId == null) {
-            log.error("Try to get confirmed request count by EventId=null");
-            throw new BadRequestException("Try to get confirmed requests count by EventIds=null");
-        }
         return requestRepository.countConfirmedRequestsByEventId(eventId);
     }
 
@@ -101,25 +98,24 @@ public class RequestServiceImpl implements RequestService {
     @Override
     @Transactional
     public ParticipationRequestDto addUserRequest(Long requesterId, Long eventId) {
-        log.info("Try to make new Request");
+        log.info("Создание запроса на участие в событии id = {} от пользователя с id = {}", eventId, requesterId);
 
         UserDto user = getUserById(requesterId);
-        checkEventExistInDB(eventId);
+        EventFullDto event = getEventById(eventId);
         checkRequestNotExistInDB(user.getId(), eventId);
 
-        Event eventProxy = entityManager.getReference(Event.class, eventId);
 
-        checkRequesterIsNotOwnerEvent(user.getId(), eventProxy);
-        checkEventIsAbleToRequest(eventProxy);
+        checkRequesterIsNotOwnerEvent(user.getId(), event);
+        checkEventIsAbleToRequest(event);
 
-        Status requestStatus = Boolean.FALSE.equals(eventProxy.getRequestModeration())
-                || Objects.equals(eventProxy.getParticipantLimit(), 0)
+        Status requestStatus = Boolean.FALSE.equals(event.getRequestModeration())
+                || Objects.equals(event.getParticipantLimit(), 0)
                 ? Status.CONFIRMED
                 : Status.PENDING;
 
         LocalDateTime created = LocalDateTime.now();
 
-        Request newRequest = new Request(null, created, eventProxy, user.getId(), requestStatus);
+        Request newRequest = new Request(null, created, eventId, user.getId(), requestStatus);
 
         Request savedRequest = requestRepository.save(newRequest);
         ParticipationRequestDto requestDto = RequestMapper.toParticipationRequestDto(savedRequest);
@@ -132,7 +128,7 @@ public class RequestServiceImpl implements RequestService {
     @Override
     @Transactional(readOnly = true)
     public List<ParticipationRequestDto> getEventRequests(Long userId, Long eventId) {
-        Event event = getEventByOwnerOrThrow(userId, eventId);
+        EventFullDto event = getEventByOwnerOrThrow(userId, eventId);
         return requestRepository.findAllByEventId(event.getId()).stream()
                 .map(RequestMapper::toParticipationRequestDto)
                 .toList();
@@ -143,20 +139,17 @@ public class RequestServiceImpl implements RequestService {
     public EventRequestStatusUpdateResult updateEventRequests(Long userId,
                                                               Long eventId,
                                                               EventRequestStatusUpdateRequest updateRequest) {
-        Event event = getEventByOwnerOrThrow(userId, eventId);
-        if (updateRequest.getRequestIds() == null || updateRequest.getRequestIds().isEmpty()) {
-            throw new BadRequestException("Request ids must not be empty");
-        }
-        if (updateRequest.getStatus() == null) {
-            throw new BadRequestException("Status must not be null");
-        }
-
+        EventFullDto event = getEventByOwnerOrThrow(userId, eventId);
         List<Request> requests = requestRepository.findAllByIdInAndEventId(updateRequest.getRequestIds(), eventId);
         if (requests.size() != updateRequest.getRequestIds().size()) {
-            throw new NotFoundException("Request was not found");
+            throw new NotFoundException("Not all requests was not found by provided ids");
         }
         if (requests.stream().anyMatch(request -> request.getStatus() != Status.PENDING)) {
             throw new ConflictDataException("Only pending requests can be updated");
+        }
+        if (Boolean.FALSE.equals(event.getRequestModeration())
+                || Objects.equals(event.getParticipantLimit(), ZERO_AVAILABLE_PARTICIPANT_SLOTS)) {
+            throw new ConflictDataException("Confirmation is not required for this event");
         }
 
         if (updateRequest.getStatus() == Status.REJECTED) {
@@ -173,18 +166,13 @@ public class RequestServiceImpl implements RequestService {
         if (updateRequest.getStatus() != Status.CONFIRMED) {
             throw new BadRequestException("Unsupported status=" + updateRequest.getStatus());
         }
-
-        if (Boolean.FALSE.equals(event.getRequestModeration())
-                || Objects.equals(event.getParticipantLimit(), ZERO_AVAILABLE_PARTICIPANT_SLOTS)) {
-            throw new ConflictDataException("Confirmation is not required for this event");
-        }
-
-        long confirmedCount = countConfirmedRequestsByEventId(eventId);
-        int availableSlots = event.getParticipantLimit() - (int) confirmedCount;
+        // for CONFIRMED
+        Integer confirmedCount = countConfirmedRequestsByEventId(eventId);
+        int availableSlots = event.getParticipantLimit() - confirmedCount;
         if (availableSlots <= ZERO_AVAILABLE_PARTICIPANT_SLOTS) {
-            throw new ConflictDataException("Event=" + eventId + " has no available spots for participation");
+            throw new ConflictDataException("Event=" + eventId + " has no available slots for participation");
         }
-
+        // чтобы отменить заявки, не попавшие из-за "SOLD OUT" в хронологическом порядке (хз, почему не на уровне БД сделали коллеги)
         Map<Long, Integer> requestOrder = new HashMap<>();
         for (int i = 0; i < updateRequest.getRequestIds().size(); i++) {
             requestOrder.put(updateRequest.getRequestIds().get(i), i);
@@ -204,7 +192,7 @@ public class RequestServiceImpl implements RequestService {
                 rejectedRequests.add(request);
             }
         }
-
+        // при заполнении всей брони отменить все оставшиеся заявки на мероприятие, которых не было в запросе (надо ли?)
         if (availableSlots == ZERO_AVAILABLE_PARTICIPANT_SLOTS) {
             Set<Long> handledRequestIds = requests.stream()
                     .map(Request::getId)
@@ -237,16 +225,29 @@ public class RequestServiceImpl implements RequestService {
         log.info("Try to reject requestId={} by userId={}", userId, requestId);
         UserDto user = getUserById(userId);
         checkRequestExistInDB(requestId);
-        Optional<Request> requestOptional = requestRepository.findById(requestId);
-        Request request = requestOptional.get();
+
+        Request request = requestRepository.findById(requestId)
+                .orElseThrow(
+                        () -> new NotFoundException("Запрос на участие не найден по id = " + requestId)
+                );
         if (!request.getRequesterId().equals(user.getId())) {
-            log.error("Canceled request can only requestor={}", request.getRequesterId());
+            log.error("Cancel request can only its requestor = {}", request.getRequesterId());
             throw new ConflictDataException("Canceled request can only requestor");
         }
         request.setStatus(Status.CANCELED);
-        Request savedRequest = requestRepository.save(request);
+        request = requestRepository.save(request);
         log.info("Successfully rejected requestId={} by userId={}", requestId, user.getId());
-        return RequestMapper.toParticipationRequestDto(savedRequest);
+        return RequestMapper.toParticipationRequestDto(request);
+    }
+
+    @Override
+    public boolean checkUserRequestConfirmation(Long eventId, Long userId) {
+        return requestRepository.findByRequesterIdAndEventId(userId, eventId)
+                .map(request -> request.getStatus().equals(Status.CONFIRMED))
+                .orElseThrow(
+                        () -> new NotFoundException("Couldn't find request from requestorId="
+                                + userId + " to eventId=" + eventId)
+                );
     }
 
     private void checkRequestExistInDB(Long requestId) {
@@ -256,15 +257,15 @@ public class RequestServiceImpl implements RequestService {
         }
     }
 
-    private void checkEventIsAbleToRequest(Event event) {
-        if (!event.getState().equals(State.PUBLISHED)) {
+    private void checkEventIsAbleToRequest(EventFullDto event) {
+        if (!event.getState().equals(State.PUBLISHED.name())) {
             log.error("Event={} is not published", event.getId());
             throw new ConflictDataException("Event=" + event.getId() + " is not published");
         }
         if (event.getParticipantLimit() == null || Objects.equals(event.getParticipantLimit(), 0)) {
             return;
         }
-        Long confirmedRequests = countConfirmedRequestsByEventId(event.getId());
+        Integer confirmedRequests = countConfirmedRequestsByEventId(event.getId());
         if (confirmedRequests >= event.getParticipantLimit()) {
             log.error("Event={} has no available spots for participation", event.getId());
             throw new ConflictDataException("Event=" + event.getId() + " has no available spots for participation");
@@ -272,8 +273,8 @@ public class RequestServiceImpl implements RequestService {
 
     }
 
-    private void checkRequesterIsNotOwnerEvent(Long requesterId, Event eventProxy) {
-        if (requesterId.equals(eventProxy.getInitiatorId())) {
+    private void checkRequesterIsNotOwnerEvent(Long requesterId, EventFullDto eventProxy) {
+        if (requesterId.equals(eventProxy.getInitiator().getId())) {
             log.error("Requester={} cant make request for its event", requesterId);
             throw new ConflictDataException("Requester cant make request for its event");
         }
@@ -287,15 +288,7 @@ public class RequestServiceImpl implements RequestService {
         }
     }
 
-    private void checkEventExistInDB(Long eventId) {
-        if (!requestRepository.existsEventById(eventId)) {
-            log.error("Event was not found with id={}", eventId);
-            throw new NotFoundException("Event was not found with id=" + eventId);
-        }
-    }
-
     private Map<Long, Long> getRequestsByEventIds(Set<Long> eventIds) {
-        log.info("Try to getRequestsByEventIds={}", eventIds);
         List<RequestCountProjection> results = requestRepository.countRequestsByEventIds(eventIds);
         if (results.isEmpty()) {
             return new HashMap<>();
@@ -307,24 +300,13 @@ public class RequestServiceImpl implements RequestService {
                 ));
     }
 
-    private Map<Long, Long> getConfirmedRequestsByEventIds(Set<Long> eventIds) {
-        List<RequestCountProjection> results = requestRepository.countConfirmedRequestsByEventIds(eventIds);
-        if (results.isEmpty()) {
-            return new HashMap<>();
-        }
-        return results.stream()
-                .collect(Collectors.toMap(
-                        RequestCountProjection::getEventId,
-                        RequestCountProjection::getConfirmedRequestsAmount
-                ));
-    }
-
-    private Event getEventByOwnerOrThrow(Long userId, Long eventId) {
+    private EventFullDto getEventByOwnerOrThrow(Long userId, Long eventId) {
         UserDto user = getUserById(userId);
-        checkEventExistInDB(eventId);
-        Event event = entityManager.getReference(Event.class, eventId);
-        if (!event.getInitiatorId().equals(user.getId())) {
-            throw new NotFoundException("Event was not found with id=" + eventId);
+        EventFullDto event = getEventById(eventId);
+        if (!event.getInitiator().getId().equals(user.getId())) {
+            throw new BadRequestException(
+                    String.format("Для события id = %d пользователь с id = %d не является инициатором.", eventId, userId)
+            );
         }
         return event;
     }
@@ -335,6 +317,15 @@ public class RequestServiceImpl implements RequestService {
             return userClient.getById(userId);
         } catch (FeignException.NotFound e) {
             throw new NotFoundException("User not found by ID=" + userId);
+        }
+    }
+
+    private EventFullDto getEventById(Long eventId) {
+        try {
+            log.debug("Попытка получить событие из event-service по его id = {}", eventId);
+            return eventClient.getById(eventId);
+        } catch (FeignException.NotFound e) {
+            throw new NotFoundException("Event was not found with id=" + eventId);
         }
     }
 }

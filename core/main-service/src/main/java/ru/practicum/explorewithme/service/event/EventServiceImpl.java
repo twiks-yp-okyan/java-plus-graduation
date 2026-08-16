@@ -2,8 +2,6 @@ package ru.practicum.explorewithme.service.event;
 
 import feign.FeignException;
 import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
-import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -21,6 +19,7 @@ import ru.practicum.explorewithme.dto.user.UserDto;
 import ru.practicum.explorewithme.exception.BadRequestException;
 import ru.practicum.explorewithme.exception.ConflictDataException;
 import ru.practicum.explorewithme.exception.NotFoundException;
+import ru.practicum.explorewithme.feign.RequestClient;
 import ru.practicum.explorewithme.feign.UserClient;
 import ru.practicum.explorewithme.mapper.EventMapper;
 import ru.practicum.explorewithme.mapper.LocationMapper;
@@ -29,11 +28,8 @@ import ru.practicum.explorewithme.model.event.Event;
 import ru.practicum.explorewithme.model.event.State;
 import ru.practicum.explorewithme.model.event.StateAction;
 import ru.practicum.explorewithme.model.location.Location;
-import ru.practicum.explorewithme.model.request.Request;
-import ru.practicum.explorewithme.model.request.Status;
 import ru.practicum.explorewithme.repository.EventRepository;
 import ru.practicum.explorewithme.service.category.CategoryService;
-import ru.practicum.explorewithme.service.request.RequestService;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -48,7 +44,7 @@ import java.util.stream.Collectors;
 public class EventServiceImpl implements EventService {
     private final EventRepository eventRepository;
     private final UserClient userClient;
-    private final RequestService requestService;
+    private final RequestClient requestClient;
     private final CategoryService categoryService;
     private final StatClient statClient;
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -93,13 +89,13 @@ public class EventServiceImpl implements EventService {
         LocalDateTime earliestDate = getEarliestDateInPage(page);
 
         Set<Long> eventIds = getEventId(page);
-        Map<Long, Long> amountRequestsByEventIds = requestService.countConfirmedRequestsByEventIds(eventIds);
+        Map<Long, Integer> amountRequestsByEventIds = requestClient.getConfirmedRequestsCountByEventIds(eventIds);
         Map<Long, Long> viewByEventIds = getNotUniqueStatsByEventIds(eventIds, earliestDate);
 
 
         Page<EventFullDto> returnedPage = page.map(event -> {
-            Long amountRequest = amountRequestsByEventIds.get(event.getId());
-            Long amountRequestResult = amountRequest == null ? 0 : amountRequest;
+            Integer requestsCount = amountRequestsByEventIds.get(event.getId());
+            Integer amountRequestResult = requestsCount == null ? 0 : requestsCount;
 
             Long stat = viewByEventIds.get(event.getId());
             Long resultStat = stat == null ? 0 : stat;
@@ -142,13 +138,13 @@ public class EventServiceImpl implements EventService {
                 .build();
         Event savedEvent = eventRepository.save(event);
         log.debug("Сохранен новый ивент с id = {}; автор - id = {}", savedEvent.getId(), savedEvent.getInitiatorId());
-        return EventMapper.toEventFullDto(savedEvent, initiator, 0L, 0L);
+        return EventMapper.toEventFullDto(savedEvent, initiator, 0, 0L);
     }
 
     @Override
     public EventFullDto getByUserIdAndId(Long userId, Long eventId) {
         Event event = getEventByUserIdAndIdOrThrow(userId, eventId);
-        Long confirmedRequests = requestService.countConfirmedRequestsByEventId(eventId);
+        Integer confirmedRequests = requestClient.getConfirmedRequestsCountByEventId(eventId);
         Long views = getNotUniqueStatsByEventId(eventId, event.getCreatedOn());
         return EventMapper.toEventFullDto(event, getUserById(event.getInitiatorId()), confirmedRequests, views);
     }
@@ -165,14 +161,14 @@ public class EventServiceImpl implements EventService {
 
         LocalDateTime earliestDate = getEarliestDateInPage(page);
         Set<Long> eventIds = getEventId(page);
-        Map<Long, Long> amountRequestsByEventIds = requestService.countConfirmedRequestsByEventIds(eventIds);
+        Map<Long, Integer> amountRequestsByEventIds = requestClient.getConfirmedRequestsCountByEventIds(eventIds);
         Map<Long, Long> viewByEventIds = getNotUniqueStatsByEventIds(eventIds, earliestDate);
 
         return page.getContent().stream()
                 .map(event -> EventMapper.toEventShortDto(
                         event,
                         getUserById(event.getInitiatorId()),
-                        amountRequestsByEventIds.getOrDefault(event.getId(), 0L),
+                        amountRequestsByEventIds.getOrDefault(event.getId(), 0),
                         viewByEventIds.getOrDefault(event.getId(), 0L)))
                 .toList();
     }
@@ -181,7 +177,7 @@ public class EventServiceImpl implements EventService {
     public List<EventShortDto> searchPublicEvents(String text, List<Long> categories, Boolean paid,
                                                   String rangeStart, String rangeEnd, Boolean onlyAvailable,
                                                   String sort, int from, int size, String requestUri, String ip) {
-        log.info("Try to searchPublicEvents by param text={}, categoties={}, paid={}", text, categories, paid);
+        log.info("Try to searchPublicEvents by param text={}, categories={}, paid={}", text, categories, paid);
         LocalDateTime start = parsePublicRangeStart(rangeStart, rangeEnd);
         LocalDateTime end = parseNullableDate(rangeEnd);
 
@@ -189,14 +185,23 @@ public class EventServiceImpl implements EventService {
             throw new BadRequestException("Range start must be before range end");
         }
 
-        log.info("Try to find public event in repository");
-
+        log.debug("Поиск событий по фильтрам в БД");
         Specification<Event> specification = createSpecificationByParam(text, categories,
-                paid, start, end, onlyAvailable);
-
-        List<Event> events = eventRepository.findAll(specification);
-
-        log.info("Found event in repository.");
+                paid, start, end);
+        List<Event> eventsWithoutAvailableFilter = eventRepository.findAll(specification);
+        log.debug("События по фльтрам поулчены. начало фильтрации по условию доступности");
+        List<Event> events;
+        if (onlyAvailable) {
+            Set<Long> eventIds = eventsWithoutAvailableFilter.stream().map(Event::getId).collect(Collectors.toSet());
+            Map<Long, Integer> eventsConfirmedRequestsCount = requestClient.getConfirmedRequestsCountByEventIds(eventIds);
+            events = eventsWithoutAvailableFilter.stream()
+                    .filter(
+                            event -> isEventAvailable(event, eventsConfirmedRequestsCount.getOrDefault(event.getId(), 0))
+                    )
+                    .toList();
+        } else {
+            events = eventsWithoutAvailableFilter;
+        }
 
         if (events.isEmpty()) {
             saveHit(requestUri, ip);
@@ -206,7 +211,7 @@ public class EventServiceImpl implements EventService {
         Set<Long> eventIds = events.stream()
                 .map(Event::getId)
                 .collect(Collectors.toSet());
-        Map<Long, Long> confirmedRequestsByEventIds = requestService.countConfirmedRequestsByEventIds(eventIds);
+        Map<Long, Integer> confirmedRequestsByEventIds = requestClient.getConfirmedRequestsCountByEventIds(eventIds);
         Map<Long, Long> viewsByEventIds = getNotUniqueStatsByEventIds(eventIds, getEarliestDate(events));
         Comparator<Event> comparator = getPublicSortComparator(sort, viewsByEventIds);
 
@@ -217,7 +222,7 @@ public class EventServiceImpl implements EventService {
                 .map(event -> EventMapper.toEventShortDto(
                         event,
                         getUserById(event.getInitiatorId()),
-                        confirmedRequestsByEventIds.getOrDefault(event.getId(), 0L),
+                        confirmedRequestsByEventIds.getOrDefault(event.getId(), 0),
                         viewsByEventIds.getOrDefault(event.getId(), 0L)))
                 .toList();
         log.info("Return List<EventShortDto>.");
@@ -230,7 +235,7 @@ public class EventServiceImpl implements EventService {
     public EventFullDto getPublishedEventById(Long eventId, String requestUri, String ip) {
         Event event = eventRepository.findByIdAndState(eventId, State.PUBLISHED)
                 .orElseThrow(() -> new NotFoundException("Event with id=" + eventId + " was not found"));
-        Long confirmedRequests = requestService.countConfirmedRequestsByEventId(eventId);
+        Integer confirmedRequests = requestClient.getConfirmedRequestsCountByEventId(eventId);
         Long views = getNotUniqueStatsByEventId(eventId, event.getCreatedOn());
         saveHit(requestUri, ip);
         return EventMapper.toEventFullDto(event, getUserById(event.getInitiatorId()), confirmedRequests, views);
@@ -283,7 +288,7 @@ public class EventServiceImpl implements EventService {
         }
 
         Event savedEvent = eventRepository.save(event);
-        Long confirmedRequests = requestService.countConfirmedRequestsByEventId(savedEvent.getId());
+        Integer confirmedRequests = requestClient.getConfirmedRequestsCountByEventId(savedEvent.getId());
         Long views = getNotUniqueStatsByEventId(savedEvent.getId(), savedEvent.getCreatedOn());
         return EventMapper.toEventFullDto(
                 savedEvent,
@@ -305,7 +310,7 @@ public class EventServiceImpl implements EventService {
         Event updatedEvent = validateAndUpdate(event, updateEventAdminRequest);
         Event savedEvent = eventRepository.saveAndFlush(updatedEvent);
 
-        Long amountRequestsByEventId = requestService.countConfirmedRequestsByEventId(savedEvent.getId());
+        Integer amountRequestsByEventId = requestClient.getConfirmedRequestsCountByEventId(savedEvent.getId());
         Long viewByEventId = getNotUniqueStatsByEventId(savedEvent.getId(), savedEvent.getCreatedOn());
 
         return EventMapper.toEventFullDto(
@@ -313,6 +318,15 @@ public class EventServiceImpl implements EventService {
                 getUserById(savedEvent.getInitiatorId()),
                 amountRequestsByEventId,
                 viewByEventId);
+    }
+
+    @Override
+    public EventFullDto getById(Long eventId) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new NotFoundException("Событие с id = " + eventId + " не найдено"));
+        Integer confirmedRequests = requestClient.getConfirmedRequestsCountByEventId(eventId);
+        Long views = getNotUniqueStatsByEventId(eventId, event.getCreatedOn());
+        return EventMapper.toEventFullDto(event, getUserById(event.getInitiatorId()), confirmedRequests, views);
     }
 
     private void checkParticipantLimit(Integer participantLimit) {
@@ -529,7 +543,7 @@ public class EventServiceImpl implements EventService {
 
     private Specification<Event> createSpecificationByParam(String text, List<Long> categories,
                                                             Boolean paid, LocalDateTime start,
-                                                            LocalDateTime end, Boolean onlyAvailable) {
+                                                            LocalDateTime end) {
 
         return (root, query, criteriaBuilder) -> {
             Predicate predicate = criteriaBuilder.conjunction();
@@ -566,25 +580,13 @@ public class EventServiceImpl implements EventService {
                         criteriaBuilder.lessThanOrEqualTo(root.get("eventDate"), end));
             }
 
-            if (Boolean.TRUE.equals(onlyAvailable)) {
-                Subquery<Long> requestCount = query.subquery(Long.class);
-                Root<Request> requestRoot = requestCount.from(Request.class);
-                requestCount.select(criteriaBuilder.count(requestRoot))
-                        .where(
-                                criteriaBuilder.equal(requestRoot.get("event"), root),
-                                criteriaBuilder.equal(requestRoot.get("status"), Status.CONFIRMED)
-                        );
-
-                predicate = criteriaBuilder.and(predicate,
-                        criteriaBuilder.or(
-                                criteriaBuilder.isNull(root.get("participantLimit")),
-                                criteriaBuilder.equal(root.get("participantLimit"), 0),
-                                criteriaBuilder.greaterThan(root.get("participantLimit"), requestCount)
-                        )
-                );
-            }
-
             return predicate;
         };
+    }
+
+    private boolean isEventAvailable(Event event, Integer confirmedRequestsCount) {
+        Integer participantLimit = event.getParticipantLimit();
+        if (participantLimit == null || participantLimit == 0) return true;
+        return participantLimit > confirmedRequestsCount;
     }
 }

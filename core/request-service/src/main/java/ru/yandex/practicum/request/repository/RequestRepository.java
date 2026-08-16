@@ -1,9 +1,10 @@
-package ru.practicum.explorewithme.repository.request;
+package ru.yandex.practicum.request.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import ru.practicum.explorewithme.model.request.Request;
+import ru.yandex.practicum.request.model.Request;
+import ru.yandex.practicum.request.model.Status;
 
 import java.util.List;
 import java.util.Optional;
@@ -19,8 +20,8 @@ public interface RequestRepository extends JpaRepository<Request, Long> {
 
     @Query("SELECT COUNT(r) " +
             "FROM Request r " +
-            "WHERE r.event.id = :eventId")
-    Long countRequestsByEventId(@Param("eventId") Long eventId);
+            "WHERE r.eventId = :eventId")
+    Integer countRequestsByEventId(@Param("eventId") Long eventId);
 
     @Query(value = "SELECT r.event_id AS eventId, COUNT(r.id) AS confirmedRequestsAmount " +
             "FROM requests r " +
@@ -31,8 +32,8 @@ public interface RequestRepository extends JpaRepository<Request, Long> {
 
     @Query("SELECT COUNT(r) " +
             "FROM Request r " +
-            "WHERE r.event.id = :eventId AND r.status = ru.practicum.explorewithme.model.request.Status.CONFIRMED")
-    Long countConfirmedRequestsByEventId(@Param("eventId") Long eventId);
+            "WHERE r.eventId = :eventId AND r.status = 'CONFIRMED'")
+    Integer countConfirmedRequestsByEventId(@Param("eventId") Long eventId);
 
     List<Request> findRequestsByRequesterId(Long id);
 
@@ -42,8 +43,5 @@ public interface RequestRepository extends JpaRepository<Request, Long> {
 
     List<Request> findAllByIdInAndEventId(List<Long> requestIds, Long eventId);
 
-    List<Request> findAllByEventIdAndStatus(Long eventId, ru.practicum.explorewithme.model.request.Status status);
-
-    @Query("SELECT COUNT(e) > 0 FROM Event e WHERE e.id = :eventId")
-    boolean existsEventById(Long eventId);
+    List<Request> findAllByEventIdAndStatus(Long eventId, Status status);
 }

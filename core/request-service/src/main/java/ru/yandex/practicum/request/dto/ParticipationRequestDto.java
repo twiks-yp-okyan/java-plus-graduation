@@ -1,4 +1,4 @@
-package ru.practicum.explorewithme.dto.request;
+package ru.yandex.practicum.request.dto;
 
 public record ParticipationRequestDto(Long id,
                                       String created,

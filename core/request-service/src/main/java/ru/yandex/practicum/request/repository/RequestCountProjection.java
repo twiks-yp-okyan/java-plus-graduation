@@ -1,4 +1,4 @@
-package ru.practicum.explorewithme.repository.request;
+package ru.yandex.practicum.request.repository;
 
 public interface RequestCountProjection {
     Long getEventId();
