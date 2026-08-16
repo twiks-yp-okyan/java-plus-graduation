@@ -1,4 +1,4 @@
-package ru.practicum.explorewithme.dto.comment;
+package ru.yandex.practicum.comment.dto;
 
 import lombok.*;
 

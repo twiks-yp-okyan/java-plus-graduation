@@ -1,9 +1,9 @@
-package ru.practicum.explorewithme.service.comment;
+package ru.yandex.practicum.comment.service;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import ru.practicum.explorewithme.dto.comment.CommentDto;
-import ru.practicum.explorewithme.dto.comment.NewComment;
+import ru.yandex.practicum.comment.dto.CommentDto;
+import ru.yandex.practicum.comment.dto.NewComment;
 
 public interface CommentService {
     CommentDto create(Long userId, Long eventId, NewComment newComment);

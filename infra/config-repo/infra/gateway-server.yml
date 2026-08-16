@@ -75,6 +75,35 @@ spring:
           predicates:
             - Path=/users/{userId}/requests/**,/users/{userId}/events/{eventId}/requests
 
+        - id: comment-service-admin
+          uri: lb://comment-service
+          predicates:
+            - Path=/admin/comments/**
+
+        - id: comment-service-read
+          uri: lb://comment-service
+          predicates:
+            - Path=/users/{userId}/comments/**,/comments/**
+            - Method=GET
+          filters:
+            - name: Retry
+              args:
+                retries: 2
+                statuses:
+                  - BAD_GATEWAY
+                  - SERVICE_UNAVAILABLE
+                  - GATEWAY_TIMEOUT
+                methods:
+                  - GET
+                backoff:
+                  firstBackoff: 100ms
+                  maxBackoff: 500ms
+
+        - id: comment-service
+          uri: lb://comment-service
+          predicates:
+            - Path=/users/{userId}/comments/**,/comments/**
+
         - id: main-service-admin
           uri: lb://main-service
           predicates:
@@ -84,11 +113,6 @@ spring:
           uri: lb://main-service
           predicates:
             - Path=/categories/**
-
-        - id: main-service-comments
-          uri: lb://main-service
-          predicates:
-            - Path=/comments/**
 
         - id: main-service-compilations
           uri: lb://main-service
@@ -100,7 +124,7 @@ spring:
           predicates:
             - Path=/users/**
 
-        - id: main-service-users
+        - id: main-service-events
           uri: lb://main-service
           predicates:
             - Path=/events/**

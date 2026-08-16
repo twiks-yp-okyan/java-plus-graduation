@@ -1,4 +1,4 @@
-package ru.practicum.explorewithme.controller.comment;
+package ru.yandex.practicum.comment.controller;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -9,9 +9,9 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import ru.practicum.explorewithme.dto.comment.CommentDto;
-import ru.practicum.explorewithme.dto.comment.NewComment;
-import ru.practicum.explorewithme.service.comment.CommentService;
+import ru.yandex.practicum.comment.dto.CommentDto;
+import ru.yandex.practicum.comment.dto.NewComment;
+import ru.yandex.practicum.comment.service.CommentService;
 
 import java.util.List;
 

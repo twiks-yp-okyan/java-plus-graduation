@@ -1,4 +1,4 @@
-package ru.practicum.explorewithme.controller.comment;
+package ru.yandex.practicum.comment.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import ru.practicum.explorewithme.service.comment.CommentService;
+import ru.yandex.practicum.comment.service.CommentService;
 
 @RestController
 @Validated

@@ -1,9 +1,9 @@
-package ru.practicum.explorewithme.repository;
+package ru.yandex.practicum.comment.repository;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import ru.practicum.explorewithme.model.comment.Comment;
+import ru.yandex.practicum.comment.model.Comment;
 
 import java.util.Optional;
 

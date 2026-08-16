@@ -288,18 +288,6 @@ public class RequestServiceImpl implements RequestService {
         }
     }
 
-    private Map<Long, Long> getRequestsByEventIds(Set<Long> eventIds) {
-        List<RequestCountProjection> results = requestRepository.countRequestsByEventIds(eventIds);
-        if (results.isEmpty()) {
-            return new HashMap<>();
-        }
-        return results.stream()
-                .collect(Collectors.toMap(
-                        RequestCountProjection::getEventId,
-                        RequestCountProjection::getConfirmedRequestsAmount
-                ));
-    }
-
     private EventFullDto getEventByOwnerOrThrow(Long userId, Long eventId) {
         UserDto user = getUserById(userId);
         EventFullDto event = getEventById(eventId);

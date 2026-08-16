@@ -18,13 +18,4 @@ public interface RequestClient {
 
     @GetMapping("/api/requests")
     Map<Long, Integer> getRequestsCountByEventIds(@RequestParam(value = "eventIds") Set<Long> eventIds);
-
-    @GetMapping("/api/requests/{eventId}")
-    Integer getRequestsCountByEventId(@PathVariable("eventId") Long eventId);
-
-    @GetMapping("/api/requests/confirmed/{eventId}/{userId}")
-    boolean checkUserRequestConfirmation(
-            @PathVariable("eventId") Long eventId,
-            @PathVariable("userId") Long userId
-    );
 }
