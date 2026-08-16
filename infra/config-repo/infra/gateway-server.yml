@@ -104,30 +104,29 @@ spring:
           predicates:
             - Path=/users/{userId}/comments/**,/comments/**
 
-        - id: main-service-admin
-          uri: lb://main-service
+        - id: event-service-read
+          uri: lb://event-service
           predicates:
-            - Path=/admin/**
+            - Path=/admin/**,/compilations/**,/categories/**,/users/{userId}/events/**,/events/**
+            - Method=GET
+          filters:
+            - name: Retry
+              args:
+                retries: 2
+                statuses:
+                  - BAD_GATEWAY
+                  - SERVICE_UNAVAILABLE
+                  - GATEWAY_TIMEOUT
+                methods:
+                  - GET
+                backoff:
+                  firstBackoff: 100ms
+                  maxBackoff: 500ms
 
-        - id: main-service-categories
-          uri: lb://main-service
+        - id: event-service
+          uri: lb://event-service
           predicates:
-            - Path=/categories/**
-
-        - id: main-service-compilations
-          uri: lb://main-service
-          predicates:
-            - Path=/compilations/**
-
-        - id: main-service-users
-          uri: lb://main-service
-          predicates:
-            - Path=/users/**
-
-        - id: main-service-events
-          uri: lb://main-service
-          predicates:
-            - Path=/events/**
+            - Path=/admin/**,/compilations/**,/categories/**,/users/{userId}/events/**,/events/**
 
       globalcors:
         add-to-simple-url-handler-mapping: true

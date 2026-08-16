@@ -5,9 +5,9 @@ spring:
       schema-locations: classpath:schema.sql
   datasource:
     driverClassName: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:6541/mainservicedb
-    username: mainservice
-    password: mainservice
+    url: jdbc:postgresql://localhost:6541/event-db
+    username: login
+    password: pass
 
 server:
   port: 0
@@ -18,5 +18,5 @@ stats:
 
 logging:
   level:
-    ru.practicum.explorewithme: DEBUG
+    ru.practicum.event: DEBUG
     ru.practicum.explorewithme.client: DEBUG

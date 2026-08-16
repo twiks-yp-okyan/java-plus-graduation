@@ -1,13 +1,13 @@
 services:
-  main-service-db:
+  event-service-db:
     image: postgres:16.1
-    container_name: postgres-main-service
+    container_name: postgres-event-service
     ports:
       - "6541:5432"
     environment:
-      - POSTGRES_PASSWORD=mainservice
-      - POSTGRES_USER=mainservice
-      - POSTGRES_DB=mainservicedb
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_USER=login
+      - POSTGRES_DB=event-db
     healthcheck:
       test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
       timeout: 5s
