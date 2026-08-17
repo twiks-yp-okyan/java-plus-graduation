@@ -1,13 +1,13 @@
 services:
-  main-service-db:
+  event-service-db:
     image: postgres:16.1
-    container_name: postgres-main-service
+    container_name: postgres-event-service
     ports:
       - "6541:5432"
     environment:
-      - POSTGRES_PASSWORD=mainservice
-      - POSTGRES_USER=mainservice
-      - POSTGRES_DB=mainservicedb
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_USER=login
+      - POSTGRES_DB=event-db
     healthcheck:
       test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
       timeout: 5s
@@ -26,6 +26,60 @@ services:
       - POSTGRES_PASSWORD=stat
       - POSTGRES_USER=stat
       - POSTGRES_DB=statdb
+    healthcheck:
+      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      timeout: 5s
+      interval: 5s
+      retries: 10
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/etc/timezone:/etc/timezone:ro"
+
+  user-service-db:
+    image: postgres:16.1
+    container_name: postgres-user-service
+    ports:
+      - "6543:5432"
+    environment:
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_USER=login
+      - POSTGRES_DB=user-db
+    healthcheck:
+      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      timeout: 5s
+      interval: 5s
+      retries: 10
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/etc/timezone:/etc/timezone:ro"
+
+  request-service-db:
+    image: postgres:16.1
+    container_name: postgres-request-service
+    ports:
+      - "6544:5432"
+    environment:
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_USER=login
+      - POSTGRES_DB=request-db
+    healthcheck:
+      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      timeout: 5s
+      interval: 5s
+      retries: 10
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/etc/timezone:/etc/timezone:ro"
+
+  comment-service-db:
+    image: postgres:16.1
+    container_name: postgres-comment-service
+    ports:
+      - "6545:5432"
+    environment:
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_USER=login
+      - POSTGRES_DB=comment-db
     healthcheck:
       test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
       timeout: 5s

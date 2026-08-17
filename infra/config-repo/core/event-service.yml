@@ -1,0 +1,22 @@
+spring:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+  datasource:
+    driverClassName: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:6541/event-db
+    username: login
+    password: pass
+
+server:
+  port: 0
+
+stats:
+  server:
+    uri: http://stats-server
+
+logging:
+  level:
+    ru.practicum.event: DEBUG
+    ru.practicum.explorewithme.client: DEBUG

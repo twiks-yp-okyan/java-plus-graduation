@@ -11,7 +11,10 @@
 
     <artifactId>core</artifactId>
     <modules>
-        <module>main-service</module>
+        <module>event-service</module>
+        <module>user-service</module>
+        <module>request-service</module>
+        <module>comment-service</module>
     </modules>
 
     <properties>

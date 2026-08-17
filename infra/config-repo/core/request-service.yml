@@ -1,0 +1,17 @@
+spring:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+  datasource:
+    driverClassName: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:6544/request-db
+    username: login
+    password: pass
+
+server:
+  port: 0
+
+logging:
+  level:
+    ru.yandex.practicum.request: DEBUG
