@@ -7,8 +7,8 @@ protocol UserActionProtocol {
 	}
 
 	record UserActionAvro {
-		int user_id;
-		int event_id;
+		long user_id;
+		long event_id;
 		ActionTypeAvro actionType;
 		timestamp_ms timestamp;
 	}

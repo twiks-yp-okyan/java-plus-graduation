@@ -6,9 +6,9 @@ import "google/protobuf/empty.proto";
 import "recommendation/messages/user_action.proto";
 
 option java_multiple_files = true;
-option java_package = "ru.yandex.practicum.grpc.recommendation.controller.user.action";
+option java_package = "ru.yandex.practicum.grpc.controller";
 
 service UserActionController {
-    rpc CollectUserAction (message.user.action.UserActionProto)
+    rpc CollectUserAction (message.UserActionProto)
         returns (google.protobuf.Empty);
 }
