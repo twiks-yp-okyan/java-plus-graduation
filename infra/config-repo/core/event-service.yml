@@ -15,7 +15,7 @@ server:
 grpc:
   client:
     analyzer-client: # <- должно соответствовать значению в @GrpcClient
-      address: 'static://localhost:8085' # адрес gRPC-сервиса
+      address: 'discovery:///analyzer' # адрес gRPC-сервиса
       enableKeepAlive: true
       keepAliveWithoutCalls: true
       negotiationType: plaintext

@@ -1,6 +1,6 @@
 grpc:
   server:
-    port: 8085
+    port: 0
 
 spring:
   jpa:
