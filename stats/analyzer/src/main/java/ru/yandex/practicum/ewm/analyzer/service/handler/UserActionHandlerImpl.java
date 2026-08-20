@@ -18,11 +18,11 @@ import java.util.Optional;
 public class UserActionHandlerImpl implements UserActionHandler {
     private final InteractionRepository repository;
     @Value("${user.action.weight.like}")
-    private final Double LIKE_WEIGHT;
+    private Double LIKE_WEIGHT;
     @Value("${user.action.weight.register}")
-    private final Double REGISTER_WEIGHT;
+    private Double REGISTER_WEIGHT;
     @Value("${user.action.weight.view}")
-    private final Double VIEW_WEIGHT;
+    private Double VIEW_WEIGHT;
 
     @Override
     public void handle(UserActionAvro event) {

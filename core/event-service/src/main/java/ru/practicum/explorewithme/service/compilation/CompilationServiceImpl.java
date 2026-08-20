@@ -9,8 +9,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.practicum.explorewithme.client.StatClient;
-import ru.practicum.explorewithme.dto.ViewStats;
+import ru.practicum.explorewithme.client.AnalyzerClient;
 import ru.practicum.explorewithme.dto.compilation.CompilationDto;
 import ru.practicum.explorewithme.dto.compilation.NewCompilationDto;
 import ru.practicum.explorewithme.dto.compilation.UpdateCompilationRequest;
@@ -26,6 +25,7 @@ import ru.practicum.explorewithme.model.compilation.Compilation;
 import ru.practicum.explorewithme.model.event.Event;
 import ru.practicum.explorewithme.repository.CompilationRepository;
 import ru.practicum.explorewithme.repository.EventRepository;
+import ru.yandex.practicum.grpc.message.RecommendedEventProto;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -34,6 +34,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @Slf4j
@@ -42,8 +44,8 @@ public class CompilationServiceImpl implements CompilationService {
     private final CompilationRepository compilationRepository;
     private final EventRepository eventRepository;
     private final RequestClient requestClient;
-    private final StatClient statClient;
     private final UserClient userClient;
+    private final AnalyzerClient analyzerClient;
 
     private static final String EVENT_URI_PREFIX = "/events/";
 
@@ -158,42 +160,27 @@ public class CompilationServiceImpl implements CompilationService {
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
 
         Map<Long, Integer> requestsByEventIds = requestClient.getRequestsCountByEventIds(eventIds);
-        Map<Long, Long> viewsByEventIds = getViewsByEventIds(compilation.getEvents());
+        Map<Long, Double> eventsRating = getEventsRating(compilation.getEvents());
 
         LinkedHashSet<EventShortDto> events = compilation.getEvents().stream()
                 .map(event -> EventMapper.toEventShortDto(
                         event,
                         getUserById(event.getInitiatorId()),
                         requestsByEventIds.getOrDefault(event.getId(), 0),
-                        viewsByEventIds.getOrDefault(event.getId(), 0L)))
+                        eventsRating.getOrDefault(event.getId(), 0.0)))
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
 
         return CompilationMapper.toCompilationDto(compilation, events);
     }
 
-    private Map<Long, Long> getViewsByEventIds(Set<Event> events) {
+    private Map<Long, Double> getEventsRating(Set<Event> events) {
         if (events.isEmpty()) {
             return Map.of();
         }
 
-        LocalDateTime start = events.stream()
-                .map(Event::getCreatedOn)
-                .min(LocalDateTime::compareTo)
-                .orElse(LocalDateTime.now());
-
-        List<String> uris = new ArrayList<>();
-        for (Event event : events) {
-            uris.add(EVENT_URI_PREFIX + event.getId());
-        }
-
-        List<ViewStats> viewStats = statClient.getStat(start, LocalDateTime.now(), uris, false);
-        Map<Long, Long> result = new LinkedHashMap<>();
-        for (ViewStats viewStat : viewStats) {
-            String[] parts = viewStat.uri().split("/");
-            Long eventId = Long.parseLong(parts[parts.length - 1]);
-            result.put(eventId, viewStat.hits());
-        }
-        return result;
+        List<Long> eventIds = events.stream().map(Event::getId).toList();
+        return analyzerClient.getInteractionsCount(eventIds)
+                .collect(Collectors.toMap(RecommendedEventProto::getEventId, RecommendedEventProto::getScore));
     }
 
     private UserDto getUserById(Long userId) {

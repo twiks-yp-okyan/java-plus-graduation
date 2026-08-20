@@ -1,6 +1,7 @@
 package ru.yandex.practicum.ewm.analyzer.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.ewm.analyzer.dto.InteractionDto;
@@ -13,6 +14,7 @@ import java.util.List;
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
+@Slf4j
 public class InteractionServiceImpl implements InteractionService {
     private final InteractionRepository repository;
     private final InteractionMapper interactionMapper;
@@ -26,6 +28,7 @@ public class InteractionServiceImpl implements InteractionService {
 
     @Override
     public List<EventMaxRating> getEventsMaxRating(List<Long> eventIds) {
+        log.debug("Достаем из БД рейтинги событий {}", eventIds);
         return repository.getEventsMaxRating(eventIds);
     }
 }

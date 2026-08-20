@@ -46,8 +46,8 @@ public class EventSimilarityHandlerImpl implements EventSimilarityHandler {
 
     private Map<String, Long> sortEvents(Long event1Id, Long event2Id) {
         Map<String, Long> sortedEvents = new HashMap<>();
-        sortedEvents.put("eventA", Math.max(event1Id, event2Id));
-        sortedEvents.put("eventB", Math.min(event1Id, event2Id));
+        sortedEvents.put("eventA", Math.min(event1Id, event2Id));
+        sortedEvents.put("eventB", Math.max(event1Id, event2Id));
         return sortedEvents;
     }
 }

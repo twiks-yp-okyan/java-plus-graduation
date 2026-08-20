@@ -5,14 +5,11 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import ru.practicum.explorewithme.dto.event.EventFullDto;
 import ru.practicum.explorewithme.dto.event.EventShortDto;
 import ru.practicum.explorewithme.service.event.EventService;
+import ru.practicum.explorewithme.utils.HttpHeadersConstants;
 
 import java.util.List;
 
@@ -50,7 +47,26 @@ public class EventPublicController {
     }
 
     @GetMapping("/{id}")
-    public EventFullDto getEventById(@PathVariable Long id, HttpServletRequest request) {
-        return eventService.getPublishedEventById(id, request.getRequestURI(), request.getRemoteAddr());
+    public EventFullDto getEventById(
+            @RequestHeader(value = HttpHeadersConstants.X_EWM_USER_ID, required = false) Long userId,
+            @PathVariable Long id,
+            HttpServletRequest request
+    ) {
+        return eventService.getPublishedEventById(userId, id, request.getRequestURI(), request.getRemoteAddr());
+    }
+
+    @GetMapping("/recommendations")
+    public List<EventFullDto> getUserRecommendations(
+            @RequestHeader(value = HttpHeadersConstants.X_EWM_USER_ID, required = false) Long userId
+    ) {
+        return eventService.getUserRecommendations(userId);
+    }
+
+    @PutMapping("/{eventId}/like")
+    public void setUserEventLike(
+            @PathVariable("eventId") Long eventId,
+            @RequestHeader(value = HttpHeadersConstants.X_EWM_USER_ID, required = false) Long userId
+    ) {
+        eventService.sendUserEventLike(userId, eventId);
     }
 }

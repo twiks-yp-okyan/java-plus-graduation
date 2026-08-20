@@ -8,6 +8,13 @@ kafka:
   producer:
     topic: stats.events-similarity.v1
 
+user:
+  action:
+    weight:
+      like: 1.0
+      register: 0.8
+      view: 0.4
+
 logging:
   level:
     ru.yandex.practicum.ewm.aggregator: DEBUG

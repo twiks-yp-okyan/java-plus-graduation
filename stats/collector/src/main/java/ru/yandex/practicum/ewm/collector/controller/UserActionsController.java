@@ -7,8 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.server.service.GrpcService;
 import ru.yandex.practicum.ewm.collector.service.UserActionHandler;
-import ru.yandex.practicum.grpc.recommendation.controller.user.action.UserActionControllerGrpc;
-import ru.yandex.practicum.grpc.recommendation.message.user.action.UserActionProto;
+import ru.yandex.practicum.grpc.controller.UserActionControllerGrpc;
+import ru.yandex.practicum.grpc.message.UserActionProto;
 
 @GrpcService
 @Slf4j
@@ -26,7 +26,7 @@ public class UserActionsController extends UserActionControllerGrpc.UserActionCo
             // и завершаем обработку запроса
             responseObserver.onCompleted();
         } catch (Exception e) {
-            log.error("Ошибка при обработке события после действия пользователя - {}", request);
+            log.error("Ошибка при обработке события после действия пользователя - {}\n{}", request, e.getMessage());
             responseObserver.onError(Status.INTERNAL
                     .withDescription("Internal error: " + e.getMessage())
                     .withCause(e)

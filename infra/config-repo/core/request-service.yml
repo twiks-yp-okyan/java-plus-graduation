@@ -12,6 +12,15 @@ spring:
 server:
   port: 0
 
+grpc:
+  client:
+    collector-client: # <- должно соответствовать значению в @GrpcClient
+      address: 'static://localhost:8086' # адрес gRPC-сервиса
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+
 logging:
   level:
     ru.yandex.practicum.request: DEBUG
+    ru.practicum.explorewithme.client: DEBUG

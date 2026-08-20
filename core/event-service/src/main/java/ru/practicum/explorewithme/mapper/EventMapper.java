@@ -12,7 +12,7 @@ import java.time.format.DateTimeFormatter;
 public class EventMapper {
     private final DateTimeFormatter customFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    public EventFullDto toEventFullDto(Event event, UserDto initiatorDto, Integer confirmedRequests, Long views) {
+    public EventFullDto toEventFullDto(Event event, UserDto initiatorDto, Integer confirmedRequests, Double rating) {
         return EventFullDto.builder()
                 .id(event.getId())
                 .annotation(event.getAnnotation())
@@ -29,11 +29,11 @@ public class EventMapper {
                 .requestModeration(event.getRequestModeration())
                 .state(event.getState().name())
                 .title(event.getTitle())
-                .views(views)
+                .rating(rating)
                 .build();
     }
 
-    public EventShortDto toEventShortDto(Event event, UserDto initiatorDto, Integer confirmedRequests, Long views) {
+    public EventShortDto toEventShortDto(Event event, UserDto initiatorDto, Integer confirmedRequests, Double rating) {
         return EventShortDto.builder()
                 .id(event.getId())
                 .annotation(event.getAnnotation())
@@ -43,7 +43,7 @@ public class EventMapper {
                 .initiator(UserMapper.toUserShortDto(initiatorDto))
                 .paid(event.getPaid())
                 .title(event.getTitle())
-                .views(views)
+                .rating(rating)
                 .build();
     }
 }

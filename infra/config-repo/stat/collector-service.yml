@@ -1,0 +1,13 @@
+grpc:
+  server:
+    port: 8086
+
+kafka:
+  bootstrap-servers: "localhost:9092"
+  auto-offset-reset: earliest
+  producer:
+    user-actions: stats.user-actions.v1
+
+logging:
+  level:
+    ru.yandex.practicum.ewm.collector: DEBUG

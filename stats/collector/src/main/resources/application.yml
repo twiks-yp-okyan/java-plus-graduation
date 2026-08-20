@@ -1,5 +1,5 @@
 spring:
   application:
-    name: collector
+    name: collector-service
   config:
     import: configserver:http://localhost:8888

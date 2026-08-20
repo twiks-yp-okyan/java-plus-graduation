@@ -16,7 +16,7 @@ public interface InteractionRepository extends JpaRepository<Interaction, Long> 
 
     List<Interaction> findByUserIdOrderByLastUpdatedAtDesc(Long userId);
 
-    @Query(value = "SELECT i.eventId, SUM(i.rating) as rating "
+    @Query(value = "SELECT i.eventId as eventId, SUM(i.rating) as rating "
     + "FROM Interaction i "
     + "WHERE i.eventId IN (:eventIds) "
     + "GROUP BY i.eventId")

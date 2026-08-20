@@ -6,8 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.practicum.ewm.stats.avro.ActionTypeAvro;
 import ru.practicum.ewm.stats.avro.UserActionAvro;
-import ru.yandex.practicum.ewm.collector.util.EnumMapper;
-import ru.yandex.practicum.grpc.recommendation.message.user.action.UserActionProto;
+import ru.yandex.practicum.grpc.message.ActionTypeProto;
+import ru.yandex.practicum.grpc.message.UserActionProto;
 
 import java.time.Instant;
 
@@ -34,8 +34,17 @@ public class UserActionHandlerImpl implements UserActionHandler {
         return UserActionAvro.newBuilder()
                 .setUserId(event.getUserId())
                 .setEventId(event.getEventId())
-                .setActionType(EnumMapper.map(event.getActionType(), ActionTypeAvro.class))
+                .setActionType(mapActionTypeToAvro(event.getActionType()))
                 .setTimestamp(Instant.ofEpochSecond(event.getTimestamp().getSeconds(), event.getTimestamp().getNanos()))
                 .build();
+    }
+
+    private ActionTypeAvro mapActionTypeToAvro(ActionTypeProto action) {
+        return switch (action) {
+            case ACTION_VIEW -> ActionTypeAvro.VIEW;
+            case ACTION_REGISTER -> ActionTypeAvro.REGISTER;
+            case ACTION_LIKE -> ActionTypeAvro.LIKE;
+            default -> null;
+        };
     }
 }

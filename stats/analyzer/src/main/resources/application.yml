@@ -1,5 +1,5 @@
 spring:
   application:
-    name: analyzer
+    name: analyzer-service
   config:
     import: configserver:http://localhost:8888

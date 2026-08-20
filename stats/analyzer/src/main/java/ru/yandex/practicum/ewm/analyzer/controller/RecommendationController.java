@@ -46,7 +46,7 @@ public class RecommendationController extends RecommendationsControllerGrpc.Reco
             }
             observer.onCompleted();
         } catch (Exception e) {
-            log.error("Ошибка при обработке запроса рекомендаций для пользователя - {}", request.getUserId());
+            log.error("Ошибка при обработке запроса рекомендаций для пользователя - {}\n{}", request.getUserId(), e.getMessage());
             observer.onError(Status.INTERNAL
                     .withDescription("Internal error: " + e.getMessage())
                     .withCause(e)
@@ -72,8 +72,8 @@ public class RecommendationController extends RecommendationsControllerGrpc.Reco
             }
             observer.onCompleted();
         } catch (Exception e) {
-            log.error("Ошибка при обработке запроса на похожие события от пользователя - {} для события - {}",
-                    request.getUserId(), request.getEventId());
+            log.error("Ошибка при обработке запроса на похожие события от пользователя - {} для события - {}\n{}",
+                    request.getUserId(), request.getEventId(), e.getMessage());
             observer.onError(Status.INTERNAL
                     .withDescription("Internal error: " + e.getMessage())
                     .withCause(e)
@@ -90,12 +90,13 @@ public class RecommendationController extends RecommendationsControllerGrpc.Reco
             log.debug("Получен запрос на рейтинг для событий {}", request.getEventIdList());
             List<EventMaxRating> eventsMaxRating = interactionService.getEventsMaxRating(request.getEventIdList());
             for (EventMaxRating eventRating : eventsMaxRating) {
+                log.debug("Объект рейтинга с айди события - {} и рейтингом - {}", eventRating.getEventId(), eventRating.getRating());
                 RecommendedEventProto response = responseBuilder(eventRating.getEventId(), eventRating.getRating());
                 observer.onNext(response);
             }
             observer.onCompleted();
         } catch (Exception e) {
-            log.error("Ошибка при обработке запроса на подсчет рейтинга списка мероприятий");
+            log.error("Ошибка при обработке запроса на подсчет рейтинга списка мероприятий\n{}", e.getMessage());
             observer.onError(Status.INTERNAL
                     .withDescription("Internal error: " + e.getMessage())
                     .withCause(e)
