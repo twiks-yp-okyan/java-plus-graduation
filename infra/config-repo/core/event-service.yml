@@ -20,7 +20,7 @@ grpc:
       keepAliveWithoutCalls: true
       negotiationType: plaintext
     collector-client: # <- должно соответствовать значению в @GrpcClient
-      address: 'static://localhost:8086' # адрес gRPC-сервиса
+      address: 'discovery:///collector' # адрес gRPC-сервиса
       enableKeepAlive: true
       keepAliveWithoutCalls: true
       negotiationType: plaintext
