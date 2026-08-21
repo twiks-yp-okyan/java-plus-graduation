@@ -59,9 +59,9 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .limit(K)
                 .toList();
 
-        Map<Long, Double> mostSimilarEventsScores = mostSimilarInteractedEvents.stream()
-                .map(event -> interactionRepository.findByUserIdAndEventId(userId, event.eventId()))
-                .map(interaction -> interaction.orElse(null))
+        Map<Long, Double> mostSimilarEventsScores = interactionRepository.findByEventIds(
+                mostSimilarInteractedEvents.stream().map(EventSimilarity::eventId).toList()
+        ).stream()
                 .collect(Collectors.toMap(Interaction::getEventId, Interaction::getRating));
 
         Double sumWeightedScores = mostSimilarInteractedEvents.stream()
