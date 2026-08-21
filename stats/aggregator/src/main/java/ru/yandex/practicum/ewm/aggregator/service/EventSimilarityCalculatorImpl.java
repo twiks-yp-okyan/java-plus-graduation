@@ -40,28 +40,19 @@ public class EventSimilarityCalculatorImpl implements EventSimilarityCalculator 
         eventUserWeight.putIfAbsent(eventId, new HashMap<>());
         Map<Long, Double> eventWeights = eventUserWeight.get(eventId);
 
+        Double currentWeight = eventWeights.getOrDefault(userId, 0.0);
         Double newWeight = mapRating(event.getActionType());
 
-        if (!eventWeights.containsKey(userId)) {
-            log.debug("Первое взаимодействие пользователя - {} с мероприямием - {}. Добавляем его оценку сумме оценок.",
-                    userId, eventId);
-            eventTotalWeight.merge(eventId, newWeight, Double::sum);
-        }
-
-        eventWeights.putIfAbsent(userId, newWeight);
-
-        Double currentWeight = eventWeights.get(userId);
         if (!needUpdateWeight(currentWeight, newWeight)) {
             log.debug("Для события - {} у пользователя {} новая оценка {} не отличается от старой - {}", eventId, userId, newWeight, currentWeight);
             return new ArrayList<>();
         }
+
         eventWeights.put(userId, newWeight);
         // обновляем суммы
         Double weightDelta = newWeight - currentWeight;
         log.debug("Разница между оценками для события {} от пользователя {} - {}", eventId, userId, weightDelta);
-        // currentWeight по дефолту, так как если сумма пустая, то первое значение - вес текущего мероприятия
         eventTotalWeight.merge(eventId, weightDelta, Double::sum);
-        log.debug("Обновили сумму оценок для события {}", eventId);
 
         log.debug("Начало пересчета коэффициентов");
         for (Map.Entry<Long, Map<Long, Double>> entry : eventUserWeight.entrySet()) {

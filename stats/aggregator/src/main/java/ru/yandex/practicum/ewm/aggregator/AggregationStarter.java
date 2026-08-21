@@ -62,7 +62,8 @@ public class AggregationStarter {
                         for (EventSimilarityAvro similarity : recalculatedEventsSimilarities) {
                             ProducerRecord<Void, SpecificRecord> producerRecord = new ProducerRecord<>(KAFKA_EVENTS_SIMILARITY_TOPIC, similarity);
                             producer.send(producerRecord);
-                            log.debug("Коэффициент схожести между событиями {} и {} отправлен в кафку", similarity.getEventA(), similarity.getEventB());
+                            log.debug("Коэффициент схожести {} между событиями {} и {} отправлен в кафку",
+                                    similarity.getScore(), similarity.getEventA(), similarity.getEventB());
                         }
                     }
                 }
