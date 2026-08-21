@@ -88,3 +88,21 @@ services:
     volumes:
       - "/etc/localtime:/etc/localtime:ro"
       - "/etc/timezone:/etc/timezone:ro"
+
+  analyzer-db:
+    image: postgres:16.1
+    container_name: postgres-analyser-db
+    ports:
+      - "6546:5432"
+    environment:
+      - POSTGRES_PASSWORD=12345
+      - POSTGRES_USER=db-user
+      - POSTGRES_DB=analyzer
+    healthcheck:
+      test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
+      timeout: 5s
+      interval: 5s
+      retries: 10
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/etc/timezone:/etc/timezone:ro"

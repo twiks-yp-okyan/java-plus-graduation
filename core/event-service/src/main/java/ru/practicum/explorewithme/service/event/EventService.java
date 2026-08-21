@@ -27,11 +27,15 @@ public interface EventService {
                                            String requestUri,
                                            String ip);
 
-    EventFullDto getPublishedEventById(Long eventId, String requestUri, String ip);
+    EventFullDto getPublishedEventById(Long userId, Long eventId, String requestUri, String ip);
 
     EventFullDto update(Long userId, Long eventId, UpdateEventUserRequest updateEvent);
 
     EventFullDto updateEventAdmin(Long eventId, UpdateEventAdminRequest updateEventAdminRequest);
 
     EventFullDto getById(Long eventId);
+
+    List<EventFullDto> getUserRecommendations(Long userId);
+
+    void sendUserEventLike(Long userId, Long eventId);
 }
